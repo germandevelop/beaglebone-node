@@ -5,7 +5,7 @@
 
 #include "RemoteControl.hpp"
 
-#include "device/vs1838_control.h"
+#include "devices/vs1838_control.h"
 
 
 RemoteControl::RemoteControl ()
