@@ -136,7 +136,6 @@ BoardB01::BoardB01 ()
         }
     }
 
-
     // Launch gpio interrupt manager in a different thread
     {
         std_error_t error;
@@ -171,5 +170,7 @@ void BoardB01::catchRemoteControlISR(void *user_data)
 
 void BoardB01::processRemoteControl (REMOTE_BUTTON remoteButton)
 {
+    BOOST_LOG_TRIVIAL(info) << "Remote button : " << remoteButton;
 
+    return;
 }

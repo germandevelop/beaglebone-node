@@ -49,35 +49,19 @@ find_package(Giomm REQUIRED)
 find_package(harfbuzz REQUIRED)
 find_package(Alsa REQUIRED)
 
-add_library(bb_common OBJECT)
-target_include_directories(bb_common
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/src
-)
-target_sources(bb_common
-    PRIVATE
-        src/GeneralData.hpp
-        src/GeneralData.cpp
-        src/ConfigParser.hpp
-        src/ConfigParser.cpp
-        src/TCP/Connection.hpp
-        src/TCP/Connection.cpp
-)
-target_compile_definitions(bb_common
-    PUBLIC
-        $<$<CONFIG:Release>:NDEBUG>
-)
-target_compile_features(bb_common
-    PUBLIC
+
+# Create beaglebone config target
+add_library(bb_config INTERFACE)
+target_compile_features(bb_config
+    INTERFACE
         cxx_std_17
 )
-set_target_properties(bb_common
-    PROPERTIES
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
+target_compile_definitions(bb_config
+    INTERFACE
+        $<$<CONFIG:Release>:NDEBUG>
 )
-target_compile_options(bb_common
-    PUBLIC
+target_compile_options(bb_config
+    INTERFACE
         -Wall
         -Wextra
         -pedantic
@@ -87,22 +71,62 @@ target_compile_options(bb_common
         $<$<CONFIG:Release>:-g0>
 )
 
+
+# Create beaglebone common target
+add_library(bb_common INTERFACE)
+target_include_directories(bb_common
+    INTERFACE
+        src
+)
+target_sources(bb_common
+    INTERFACE
+        src/GeneralData.hpp
+        src/GeneralData.cpp
+        src/ConfigParser.hpp
+        src/ConfigParser.cpp
+        src/TCP/Connection.hpp
+        src/TCP/Connection.cpp
+)
+
 add_subdirectory(external/common_code)
+target_link_libraries(bb_common INTERFACE node)
 
-target_link_libraries(bb_common PRIVATE node)
-target_include_directories(bb_common PUBLIC ${BOOST_INCLUDE_DIRS})
-target_link_libraries(bb_common PUBLIC ${Boost_LIBRARIES})
-target_link_libraries(bb_common PRIVATE Threads::Threads)
+target_include_directories(bb_common INTERFACE ${BOOST_INCLUDE_DIRS})
+target_link_libraries(bb_common INTERFACE ${Boost_LIBRARIES})
+target_link_libraries(bb_common INTERFACE Threads::Threads)
 
 
-# Client
+# Create beaglebone server target
+add_executable(bb_server_software src/server/main.cpp)
+target_link_libraries(bb_server_software PRIVATE bb_config)
+target_link_libraries(bb_server_software PRIVATE bb_common)
+target_include_directories(bb_server_software
+    PRIVATE
+        src/server
+)
+target_sources(bb_server_software
+    PRIVATE
+        src/TCP/Acceptor.hpp
+        src/TCP/Acceptor.cpp
+        src/TCP/Server.hpp
+        src/TCP/Server.cpp
+)
+set_target_properties(bb_server_software
+    PROPERTIES
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+)
+
+
+# Create beaglebone client target
 add_executable(bb_client_software src/client/main.cpp)
+target_link_libraries(bb_server_software PRIVATE bb_config)
 target_link_libraries(bb_client_software PRIVATE bb_common)
 target_link_libraries(bb_client_software PRIVATE std_error)
 target_link_libraries(bb_client_software PRIVATE vs1838_control)
 target_include_directories(bb_client_software
     PRIVATE
-        ${PROJECT_SOURCE_DIR}/src/client
+        src/client
 )
 target_sources(bb_client_software
     PRIVATE
@@ -151,7 +175,6 @@ target_sources(bb_client_software
         src/TCP/Client.hpp
         src/TCP/Client.cpp
 )
-
 include_directories(bb_client_software
     PRIVATE
         ${Pangomm_INCLUDE_DIRS}
@@ -186,20 +209,4 @@ set_target_properties(bb_client_software
         CXX_EXTENSIONS OFF
         C_STANDARD_REQUIRED ON
         C_EXTENSIONS ON
-)
-
-# Server
-add_executable(bb_server_software src/server/main.cpp)
-target_link_libraries(bb_server_software PRIVATE bb_common)
-target_sources(bb_server_software
-    PRIVATE
-        src/TCP/Acceptor.hpp
-        src/TCP/Acceptor.cpp
-        src/TCP/Server.hpp
-        src/TCP/Server.cpp
-)
-set_target_properties(bb_server_software
-    PROPERTIES
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
 )

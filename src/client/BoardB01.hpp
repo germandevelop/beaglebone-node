@@ -38,13 +38,13 @@ class BoardB01 : public Board
         boost::asio::io_service &ioService;
 
     private:
-        boost::shared_mutex dataMutexT01;
+        //boost::shared_mutex dataMutexT01;
         TimerHumiditySensorData humidityDataT01;
         DOOR_STATE doorStateT01;
         bool isDoorNotificationEnabledT01;
 
     private:
-        boost::shared_mutex dataMutexB02;
+        //boost::shared_mutex dataMutexB02;
         TimerHumiditySensorData humidityDataB02;
 
     private:
