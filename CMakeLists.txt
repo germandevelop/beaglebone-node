@@ -135,10 +135,11 @@ target_sources(bb_client_software
         src/client/BoardB01.Type.hpp
         src/client/BoardB01.hpp
         src/client/BoardB01.cpp
-        src/client/LightSensor.hpp
-        src/client/LightSensor.cpp
-        src/client/LedController.hpp
-        src/client/LedController.cpp
+        src/client/PhotoResistor.hpp
+        src/client/PhotoResistor.cpp
+        src/client/StatusLed.Type.hpp
+        src/client/StatusLed.hpp
+        src/client/StatusLed.cpp
         src/client/RemoteControl.Type.hpp
         src/client/RemoteControl.hpp
         src/client/RemoteControl.cpp
@@ -158,18 +159,18 @@ target_sources(bb_client_software
         src/client/hdmi_speakers.c
         src/client/module.h
         src/client/module.c
-        src/client/gpio_int.config.h
+        src/client/gpio_int.type.h
         src/client/gpio_int.h
         src/client/gpio_int.c
-        src/client/TimerHumiditySensor.Type.hpp
-        src/client/TimerHumiditySensor.hpp
-        src/client/TimerHumiditySensor.cpp
-        src/client/TimerDustSensor.Type.hpp
-        src/client/TimerDustSensor.hpp
-        src/client/TimerDustSensor.cpp
-        src/client/TimerSmokeSensor.Type.hpp
-        src/client/TimerSmokeSensor.hpp
-        src/client/TimerSmokeSensor.cpp
+        src/client/PeriodicHumiditySensor.Type.hpp
+        src/client/PeriodicHumiditySensor.hpp
+        src/client/PeriodicHumiditySensor.cpp
+        src/client/PeriodicDustSensor.Type.hpp
+        src/client/PeriodicDustSensor.hpp
+        src/client/PeriodicDustSensor.cpp
+        src/client/PeriodicSmokeSensor.Type.hpp
+        src/client/PeriodicSmokeSensor.hpp
+        src/client/PeriodicSmokeSensor.cpp
         src/client/HdmiDisplayB01.hpp
         src/client/HdmiDisplayB01.cpp
         src/TCP/Client.hpp

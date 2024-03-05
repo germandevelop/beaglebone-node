@@ -3,16 +3,17 @@
  *   Date   : 2023
  ************************************************************/
 
-#ifndef TIMER_SMOKE_SENSOR_TYPE_H_
-#define TIMER_SMOKE_SENSOR_TYPE_H_
+#ifndef STATUS_LED_TYPE_H_
+#define STATUS_LED_TYPE_H_
 
 #include <cstddef>
 
-struct TimerSmokeSensorData
+enum class STATUS_LED_COLOR : std::size_t
 {
-    std::size_t adcValue;
-
-    bool isValid;
+    GREEN = 0U,
+    BLUE,
+    RED,
+    NO_COLOR
 };
 
-#endif // TIMER_SMOKE_SENSOR_TYPE_H_
+#endif // STATUS_LED_TYPE_H_

@@ -3,17 +3,17 @@
  *   Date   : 2023
  ************************************************************/
 
-#include "LightSensor.hpp"
+#include "PhotoResistor.hpp"
 
 #include <fstream>
 #include <filesystem>
 
 
-LightSensor::LightSensor () = default;
-LightSensor::~LightSensor () = default;
+PhotoResistor::PhotoResistor () = default;
+PhotoResistor::~PhotoResistor () = default;
 
 
-std::size_t LightSensor::readAdcValue () const
+std::size_t PhotoResistor::readAdcValue () const
 {
     const std::filesystem::path adcValuePath = "/sys/bus/iio/devices/iio:device0/in_voltage5_raw";
 

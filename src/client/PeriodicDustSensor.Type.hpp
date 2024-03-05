@@ -3,12 +3,12 @@
  *   Date   : 2023
  ************************************************************/
 
-#ifndef TIMER_DUST_SENSOR_TYPE_H_
-#define TIMER_DUST_SENSOR_TYPE_H_
+#ifndef PERIODIC_DUST_SENSOR_TYPE_H_
+#define PERIODIC_DUST_SENSOR_TYPE_H_
 
 #include <cstddef>
 
-struct TimerDustSensorData
+struct PeriodicDustSensorData
 {
     std::size_t pm10;   // PM 10 concentration [μg/m3]
     std::size_t pm2p5;  // PM 2.5 concentration [μg/m3]
@@ -17,4 +17,4 @@ struct TimerDustSensorData
     bool isValid;
 };
 
-#endif // TIMER_DUST_SENSOR_TYPE_H_
+#endif // PERIODIC_DUST_SENSOR_TYPE_H_

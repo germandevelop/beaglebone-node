@@ -6,7 +6,7 @@
 #ifndef GPIO_INT_H_
 #define GPIO_INT_H_
 
-#include "gpio_int.config.h"
+#include "gpio_int.type.h"
 
 typedef struct gpio_int gpio_int_t;
 typedef struct std_error std_error_t;

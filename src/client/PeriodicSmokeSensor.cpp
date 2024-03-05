@@ -3,7 +3,7 @@
  *   Date   : 2023
  ************************************************************/
 
-#include "TimerSmokeSensor.hpp"
+#include "PeriodicSmokeSensor.hpp"
 
 #include <boost/chrono.hpp>
 #include <boost/move/make_unique.hpp>
@@ -18,7 +18,7 @@
 #include "GpioOut.hpp"
 
 
-TimerSmokeSensor::TimerSmokeSensor (TimerSmokeSensor::Config config, boost::asio::io_service &service)
+PeriodicSmokeSensor::PeriodicSmokeSensor (PeriodicSmokeSensor::Config config, boost::asio::io_service &service)
 :
     ioService { service },
     timer { ioService }
@@ -37,10 +37,10 @@ TimerSmokeSensor::TimerSmokeSensor (TimerSmokeSensor::Config config, boost::asio
     return;
 }
 
-TimerSmokeSensor::~TimerSmokeSensor () = default;
+PeriodicSmokeSensor::~PeriodicSmokeSensor () = default;
 
 
-void TimerSmokeSensor::launch ()
+void PeriodicSmokeSensor::launch ()
 {
     BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: initial warm up";
 
@@ -48,7 +48,7 @@ void TimerSmokeSensor::launch ()
 
     this->powerGpio->setHigh();
 
-    auto asyncCallback = boost::bind(&TimerSmokeSensor::enablePower, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicSmokeSensor::enablePower, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.initWarmTimeS));
     this->timer.async_wait(asyncCallback);
@@ -56,19 +56,19 @@ void TimerSmokeSensor::launch ()
     return;
 }
 
-TimerSmokeSensorData TimerSmokeSensor::getData () const noexcept
+PeriodicSmokeSensorData PeriodicSmokeSensor::getData () const noexcept
 {
     return this->data;
 }
 
 
-void TimerSmokeSensor::enablePower ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicSmokeSensor::enablePower ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: power on";
 
     this->powerGpio->setHigh();
 
-    auto asyncCallback = boost::bind(&TimerSmokeSensor::readData, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicSmokeSensor::readData, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
     this->timer.async_wait(asyncCallback);
@@ -76,7 +76,7 @@ void TimerSmokeSensor::enablePower ([[maybe_unused]] const boost::system::error_
     return;
 }
 
-void TimerSmokeSensor::readData ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicSmokeSensor::readData ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     const auto adcValue = this->sensor->readAdcValue();
     this->buffer.push_back(adcValue);
@@ -104,14 +104,14 @@ void TimerSmokeSensor::readData ([[maybe_unused]] const boost::system::error_cod
 
         this->buffer.clear();
 
-        auto asyncCallback = boost::bind(&TimerSmokeSensor::disablePower, this, boost::placeholders::_1);
+        auto asyncCallback = boost::bind(&PeriodicSmokeSensor::disablePower, this, boost::placeholders::_1);
 
         this->timer.expires_from_now(boost::posix_time::seconds(0));
         this->timer.async_wait(asyncCallback);
     }
     else
     {
-        auto asyncCallback = boost::bind(&TimerSmokeSensor::readData, this, boost::placeholders::_1);
+        auto asyncCallback = boost::bind(&PeriodicSmokeSensor::readData, this, boost::placeholders::_1);
 
         this->timer.expires_from_now(boost::posix_time::seconds(this->config.sampleTimeS));
         this->timer.async_wait(asyncCallback);
@@ -119,13 +119,13 @@ void TimerSmokeSensor::readData ([[maybe_unused]] const boost::system::error_cod
     return;
 }
 
-void TimerSmokeSensor::disablePower ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicSmokeSensor::disablePower ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: power off";
 
     this->powerGpio->setLow();
 
-    auto asyncCallback = boost::bind(&TimerSmokeSensor::enablePower, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicSmokeSensor::enablePower, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.sleepTimeS));
     this->timer.async_wait(asyncCallback);

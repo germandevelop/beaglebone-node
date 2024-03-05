@@ -10,15 +10,13 @@
 
 #include "Board.hpp"
 #include "BoardB01.Type.hpp"
-#include "TimerHumiditySensor.Type.hpp"
+#include "PeriodicHumiditySensor.Type.hpp"
 #include "RemoteControl.Type.hpp"
 
 class HdmiDisplayB01;
-class TimerDustSensor;
-class TimerHumiditySensor;
-class TimerSmokeSensor;
-class RemoteControl;
-typedef struct gpio_int gpio_int_t;
+class PeriodicDustSensor;
+class PeriodicHumiditySensor;
+class PeriodicSmokeSensor;
 
 class BoardB01 : public Board
 {
@@ -28,32 +26,31 @@ class BoardB01 : public Board
         BoardB01& operator= (const BoardB01&) = delete;
         BoardB01 (BoardB01&&) = delete;
         BoardB01& operator= (BoardB01&&) = delete;
-        ~BoardB01 ();
+        virtual ~BoardB01 ();
 
     private:
-        static void catchRemoteControlISR (void *user_data);
-        void processRemoteControl (REMOTE_BUTTON remoteButton);
+        virtual boost::container::vector<gpio_int_isr_t> getGpioIntIsrArray () const override final;
+        virtual void processPhotoResistorData (PhotoResistorData data) override final;
+        virtual void processRemoteButton (REMOTE_BUTTON button) override final;
 
     private:
         boost::asio::io_service &ioService;
 
     private:
         //boost::shared_mutex dataMutexT01;
-        TimerHumiditySensorData humidityDataT01;
+        PeriodicHumiditySensorData humidityDataT01;
         DOOR_STATE doorStateT01;
         bool isDoorNotificationEnabledT01;
 
     private:
         //boost::shared_mutex dataMutexB02;
-        TimerHumiditySensorData humidityDataB02;
+        PeriodicHumiditySensorData humidityDataB02;
 
     private:
         boost::movelib::unique_ptr<HdmiDisplayB01> hdmiDisplay;
-        boost::movelib::unique_ptr<TimerHumiditySensor> humiditySensor;
-        boost::movelib::unique_ptr<TimerSmokeSensor> smokeSensor;
-        boost::movelib::unique_ptr<TimerDustSensor> dustSensor;
-        boost::movelib::unique_ptr<RemoteControl> remoteControl;
-        boost::movelib::unique_ptr<gpio_int_t> gpio_int;
+        boost::movelib::unique_ptr<PeriodicHumiditySensor> humiditySensor;
+        boost::movelib::unique_ptr<PeriodicSmokeSensor> smokeSensor;
+        boost::movelib::unique_ptr<PeriodicDustSensor> dustSensor;
 };
 
 #endif // BOARD_B01_H_

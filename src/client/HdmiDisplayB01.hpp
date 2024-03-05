@@ -11,9 +11,9 @@
 #include <boost/move/unique_ptr.hpp>
 
 #include "BoardB01.Type.hpp"
-#include "TimerHumiditySensor.Type.hpp"
-#include "TimerSmokeSensor.Type.hpp"
-#include "TimerDustSensor.Type.hpp"
+#include "PeriodicHumiditySensor.Type.hpp"
+#include "PeriodicSmokeSensor.Type.hpp"
+#include "PeriodicDustSensor.Type.hpp"
 
 class HdmiDisplay;
 class GpioOut;
@@ -31,17 +31,17 @@ class HdmiDisplayB01
     public:
         struct Data
         {
-            TimerHumiditySensorData humidityDataB01;
-            TimerSmokeSensorData smokeDataB01;
-            TimerDustSensorData dustDataB01;
+            PeriodicHumiditySensorData humidityDataB01;
+            PeriodicSmokeSensorData smokeDataB01;
+            PeriodicDustSensorData dustDataB01;
             decltype(smokeDataB01.adcValue) smokeAdcThresholdB01;
 
-            TimerHumiditySensorData humidityDataT01;
+            PeriodicHumiditySensorData humidityDataT01;
             DOOR_STATE doorStateT01;
             bool isDoorNotificationEnabledT01;
             decltype(smokeDataB01.adcValue) temperatureThresholdT01;
 
-            TimerHumiditySensorData humidityDataB02;
+            PeriodicHumiditySensorData humidityDataB02;
         };
 
     public:

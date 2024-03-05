@@ -3,19 +3,19 @@
  *   Date   : 2023
  ************************************************************/
 
-#ifndef TIMER_DUST_SENSOR_H_
-#define TIMER_DUST_SENSOR_H_
+#ifndef PERIODIC_DUST_SENSOR_H_
+#define PERIODIC_DUST_SENSOR_H_
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/move/unique_ptr.hpp>
 
-#include "TimerDustSensor.Type.hpp"
+#include "PeriodicDustSensor.Type.hpp"
 
 class DustSensor;
 class GpioOut;
 
-class TimerDustSensor
+class PeriodicDustSensor
 {
     public:
         struct Config
@@ -28,16 +28,16 @@ class TimerDustSensor
         };
 
     public:
-        explicit TimerDustSensor (Config config, boost::asio::io_service &service);
-        TimerDustSensor (const TimerDustSensor&) = delete;
-        TimerDustSensor& operator= (const TimerDustSensor&) = delete;
-        TimerDustSensor (TimerDustSensor&&) = delete;
-        TimerDustSensor& operator= (TimerDustSensor&&) = delete;
-        ~TimerDustSensor ();
+        explicit PeriodicDustSensor (Config config, boost::asio::io_service &service);
+        PeriodicDustSensor (const PeriodicDustSensor&) = delete;
+        PeriodicDustSensor& operator= (const PeriodicDustSensor&) = delete;
+        PeriodicDustSensor (PeriodicDustSensor&&) = delete;
+        PeriodicDustSensor& operator= (PeriodicDustSensor&&) = delete;
+        ~PeriodicDustSensor ();
 
     public:
         void launch ();
-        TimerDustSensorData getData () const noexcept;
+        PeriodicDustSensorData getData () const noexcept;
 
     private:
         void enablePower (const boost::system::error_code &errorCode);
@@ -47,7 +47,7 @@ class TimerDustSensor
 
     private:
         Config config;
-        TimerDustSensorData data;
+        PeriodicDustSensorData data;
 
     private:
         boost::asio::io_service &ioService;
@@ -58,4 +58,4 @@ class TimerDustSensor
         boost::movelib::unique_ptr<GpioOut> powerGpio;
 };
 
-#endif // TIMER_DUST_SENSOR_H_
+#endif // PERIODIC_DUST_SENSOR_H_

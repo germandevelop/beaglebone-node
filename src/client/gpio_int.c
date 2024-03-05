@@ -87,10 +87,10 @@ int gpio_int_register_isr (gpio_int_t * const self,
                             gpio_int_isr_t const * const gpio_isr,
                             std_error_t * const error)
 {
-    assert(self != NULL);
-    assert(gpio_isr != NULL);
-    assert(gpio_isr->isr_callback != NULL);
-    assert(self->gpio_size != self->gpio_capacity);
+    assert(self                     != NULL);
+    assert(gpio_isr                 != NULL);
+    assert(gpio_isr->isr_callback   != NULL);
+    assert(self->gpio_size          != self->gpio_capacity);
 
     int exit_code = gpio_int_set_export(self, gpio_isr, error);
 

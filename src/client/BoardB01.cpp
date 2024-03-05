@@ -12,21 +12,15 @@
 #include <boost/log/trivial.hpp>
 
 #include "HdmiDisplayB01.hpp"
-#include "TimerDustSensor.hpp"
-#include "TimerHumiditySensor.hpp"
-#include "TimerSmokeSensor.hpp"
-#include "RemoteControl.hpp"
-
-#include "gpio_int.h"
-#include "std_error/std_error.h"
+#include "PeriodicDustSensor.hpp"
+#include "PeriodicHumiditySensor.hpp"
+#include "PeriodicSmokeSensor.hpp"
 
 
 #define HDMI_DISPLAY_POWER_GPIO     0U
 #define HUMIDITY_SENSOR_POWER_GPIO  61U
 #define SMOKE_SENSOR_POWER_GPIO     46U
 #define DUST_SENSOR_POWER_GPIO      65U
-
-#define REMOTE_CONTROL_INT_GPIO 22U
 
 #define SMOKE_SENSOR_THRESHOLD              200U
 #define GLASS_HOUSE_DOOR_TEMP_THRESHOLD_C   30.0
@@ -65,20 +59,20 @@ BoardB01::BoardB01 ()
 
     // Init humidity sensor
     {
-        TimerHumiditySensor::Config config;
+        PeriodicHumiditySensor::Config config;
         config.initWarmTimeS    = 30U;
         config.warmTimeS        = 8U;
         config.moduleTimeS      = 5U;
         config.sleepTimeS       = 60U * 1U;
         config.powerGpio        = HUMIDITY_SENSOR_POWER_GPIO;
 
-        this->humiditySensor = boost::movelib::make_unique<TimerHumiditySensor>(config, this->ioService);
+        this->humiditySensor = boost::movelib::make_unique<PeriodicHumiditySensor>(config, this->ioService);
         this->humiditySensor->launch();
     }
 
     // Init smoke sensor
     {
-        TimerSmokeSensor::Config config;
+        PeriodicSmokeSensor::Config config;
         config.initWarmTimeS    = 60U * 2U;
         config.warmTimeS        = 30U;
         config.sampleCount      = 16U;
@@ -86,65 +80,21 @@ BoardB01::BoardB01 ()
         config.sleepTimeS       = 60U * 2U;
         config.powerGpio        = SMOKE_SENSOR_POWER_GPIO;
 
-        this->smokeSensor = boost::movelib::make_unique<TimerSmokeSensor>(config, this->ioService);
+        this->smokeSensor = boost::movelib::make_unique<PeriodicSmokeSensor>(config, this->ioService);
         this->smokeSensor->launch();
     }
 
     // Init dust sensor
     {
-        TimerDustSensor::Config config;
+        PeriodicDustSensor::Config config;
         config.initWarmTimeS    = 60U * 3U;
         config.warmTimeS        = 30U;
         config.moduleTimeS      = 45U;
         config.sleepTimeS       = 60U * 4U;
         config.powerGpio        = DUST_SENSOR_POWER_GPIO;
 
-        this->dustSensor = boost::movelib::make_unique<TimerDustSensor>(config, this->ioService);
+        this->dustSensor = boost::movelib::make_unique<PeriodicDustSensor>(config, this->ioService);
         this->dustSensor->launch();
-    }
-
-    // Init gpio interrupt manager
-    {
-        std_error_t error;
-        std_error_init(&error);
-
-        gpio_int_config_t gpio_int_config;
-        gpio_int_config.gpio_count = 1U;
-
-        if (gpio_int_init(this->gpio_int.get(), &gpio_int_config, &error) != STD_SUCCESS)
-        {
-            throw std::runtime_error { error.text };
-        }
-    }
-
-    // Init remote control
-    {
-        this->remoteControl = boost::movelib::make_unique<RemoteControl>();
-
-        std_error_t error;
-        std_error_init(&error);
-
-        gpio_int_isr_t gpio_isr;
-        gpio_isr.number         = REMOTE_CONTROL_INT_GPIO;
-        gpio_isr.edge           = FALLING;
-        gpio_isr.isr_callback   = BoardB01::catchRemoteControlISR;
-        gpio_isr.user_data      = (void*)this;
-
-        if (gpio_int_register_isr(this->gpio_int.get(), &gpio_isr, &error) != STD_SUCCESS)
-        {
-            BOOST_LOG_TRIVIAL(error) << "GPIO (" << gpio_isr.number << ") registration error : " << error.text;
-        }
-    }
-
-    // Launch gpio interrupt manager in a different thread
-    {
-        std_error_t error;
-        std_error_init(&error);
-
-        if (gpio_int_start_thread(this->gpio_int.get(), &error) != STD_SUCCESS)
-        {
-            throw std::runtime_error { error.text };
-        }
     }
 
     return;
@@ -153,24 +103,17 @@ BoardB01::BoardB01 ()
 BoardB01::~BoardB01 () = default;
 
 
-void BoardB01::catchRemoteControlISR(void *user_data)
+boost::container::vector<gpio_int_isr_t> BoardB01::getGpioIntIsrArray () const
 {
-    BoardB01 *board = (BoardB01*)user_data;
-
-    const auto button = board->remoteControl->processSignal();
-
-    if (button != REMOTE_BUTTON::UNKNOWN)
-    {
-        auto asyncCallback = boost::bind(&BoardB01::processRemoteControl, board, button);
-
-        board->ioService.post(asyncCallback);
-    }
-    return;
+    return boost::container::vector<gpio_int_isr_t>{};
 }
 
-void BoardB01::processRemoteControl (REMOTE_BUTTON remoteButton)
+void BoardB01::processPhotoResistorData (Board::PhotoResistorData data)
 {
-    BOOST_LOG_TRIVIAL(info) << "Remote button : " << remoteButton;
 
-    return;
+}
+
+void BoardB01::processRemoteButton (REMOTE_BUTTON button)
+{
+
 }

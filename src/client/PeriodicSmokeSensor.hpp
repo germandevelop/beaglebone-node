@@ -3,20 +3,20 @@
  *   Date   : 2023
  ************************************************************/
 
-#ifndef TIMER_SMOKE_SENSOR_H_
-#define TIMER_SMOKE_SENSOR_H_
+#ifndef PERIODIC_SMOKE_SENSOR_H_
+#define PERIODIC_SMOKE_SENSOR_H_
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/container/vector.hpp>
 #include <boost/move/unique_ptr.hpp>
 
-#include "TimerSmokeSensor.Type.hpp"
+#include "PeriodicSmokeSensor.Type.hpp"
 
 class SmokeSensor;
 class GpioOut;
 
-class TimerSmokeSensor
+class PeriodicSmokeSensor
 {
     public:
         struct Config
@@ -30,16 +30,16 @@ class TimerSmokeSensor
         };
 
     public:
-        explicit TimerSmokeSensor (Config config, boost::asio::io_service &service);
-        TimerSmokeSensor (const TimerSmokeSensor&) = delete;
-        TimerSmokeSensor& operator= (const TimerSmokeSensor&) = delete;
-        TimerSmokeSensor (TimerSmokeSensor&&) = delete;
-        TimerSmokeSensor& operator= (TimerSmokeSensor&&) = delete;
-        ~TimerSmokeSensor ();
+        explicit PeriodicSmokeSensor (Config config, boost::asio::io_service &service);
+        PeriodicSmokeSensor (const PeriodicSmokeSensor&) = delete;
+        PeriodicSmokeSensor& operator= (const PeriodicSmokeSensor&) = delete;
+        PeriodicSmokeSensor (PeriodicSmokeSensor&&) = delete;
+        PeriodicSmokeSensor& operator= (PeriodicSmokeSensor&&) = delete;
+        ~PeriodicSmokeSensor ();
 
     public:
         void launch ();
-        TimerSmokeSensorData getData () const noexcept;
+        PeriodicSmokeSensorData getData () const noexcept;
 
     private:
         void enablePower (const boost::system::error_code &errorCode);
@@ -48,7 +48,7 @@ class TimerSmokeSensor
 
     private:
         Config config;
-        TimerSmokeSensorData data;
+        PeriodicSmokeSensorData data;
 
     private:
         boost::asio::io_service &ioService;
@@ -60,4 +60,4 @@ class TimerSmokeSensor
         boost::container::vector<std::size_t> buffer;
 };
 
-#endif // TIMER_SMOKE_SENSOR_H_
+#endif // PERIODIC_SMOKE_SENSOR_H_

@@ -3,7 +3,7 @@
  *   Date   : 2023
  ************************************************************/
 
-#include "LedController.hpp"
+#include "StatusLed.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -14,7 +14,7 @@
 #define GREEN_PATH  "/sys/devices/platform/dmtimer-pwm@7/pwm/pwmchip1"
 
 
-LedController::LedController ()
+StatusLed::StatusLed ()
 {
     const std::string redPath   = RED_PATH;
     const std::string bluePath  = BLUE_PATH;
@@ -59,7 +59,7 @@ LedController::LedController ()
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
         dataStream.open(redPath + periodPath, std::ios_base::out);
-        dataStream << LedController::periodNS;
+        dataStream << StatusLed::periodNS;
     }
 
     {
@@ -67,7 +67,7 @@ LedController::LedController ()
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
         dataStream.open(bluePath + periodPath, std::ios_base::out);
-        dataStream << LedController::periodNS;
+        dataStream << StatusLed::periodNS;
     }
 
     {
@@ -75,7 +75,7 @@ LedController::LedController ()
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
         dataStream.open(greenPath + periodPath, std::ios_base::out);
-        dataStream << LedController::periodNS;
+        dataStream << StatusLed::periodNS;
     }
 
     // Setup duty cycle
@@ -84,7 +84,7 @@ LedController::LedController ()
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
         dataStream.open(redPath + dutyCyclePath, std::ios_base::out);
-        dataStream << LedController::dutyCycleNS;
+        dataStream << StatusLed::dutyCycleNS;
     }
 
     {
@@ -92,7 +92,7 @@ LedController::LedController ()
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
         dataStream.open(bluePath + dutyCyclePath, std::ios_base::out);
-        dataStream << LedController::dutyCycleNS;
+        dataStream << StatusLed::dutyCycleNS;
     }
 
     {
@@ -100,18 +100,18 @@ LedController::LedController ()
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
         dataStream.open(greenPath + dutyCyclePath, std::ios_base::out);
-        dataStream << LedController::dutyCycleNS;
+        dataStream << StatusLed::dutyCycleNS;
     }
 
-    this->setLedColor(LedController::COLOR::NO_COLOR);
+    this->setColor(STATUS_LED_COLOR::NO_COLOR);
     
     return;
 }
 
-LedController::~LedController () = default;
+StatusLed::~StatusLed () = default;
 
 
-void LedController::setLedColor (LedController::COLOR newColor) const
+void StatusLed::setColor (STATUS_LED_COLOR color) const
 {
     const std::string redPath   = RED_PATH;
     const std::string bluePath  = BLUE_PATH;
@@ -145,7 +145,7 @@ void LedController::setLedColor (LedController::COLOR newColor) const
     }
 
     // Enable necessary pwm
-    if (newColor == LedController::COLOR::RED)
+    if (color == STATUS_LED_COLOR::RED)
     {
         std::ofstream dataStream;
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -153,7 +153,7 @@ void LedController::setLedColor (LedController::COLOR newColor) const
         dataStream.open(redPath + enablePath, std::ios_base::out);
         dataStream << 1U;
     }
-    else if (newColor == LedController::COLOR::BLUE)
+    else if (color == STATUS_LED_COLOR::BLUE)
     {
         std::ofstream dataStream;
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -161,7 +161,7 @@ void LedController::setLedColor (LedController::COLOR newColor) const
         dataStream.open(bluePath + enablePath, std::ios_base::out);
         dataStream << 1U;
     }
-    else if (newColor == LedController::COLOR::GREEN)
+    else if (color == STATUS_LED_COLOR::GREEN)
     {
         std::ofstream dataStream;
         dataStream.exceptions(std::ifstream::failbit | std::ifstream::badbit);

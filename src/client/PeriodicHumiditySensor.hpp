@@ -3,19 +3,19 @@
  *   Date   : 2023
  ************************************************************/
 
-#ifndef TIMER_HUMIDITY_SENSOR_H_
-#define TIMER_HUMIDITY_SENSOR_H_
+#ifndef PERIODIC_HUMIDITY_SENSOR_H_
+#define PERIODIC_HUMIDITY_SENSOR_H_
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/move/unique_ptr.hpp>
 
-#include "TimerHumiditySensor.Type.hpp"
+#include "PeriodicHumiditySensor.Type.hpp"
 
 class HumiditySensor;
 class GpioOut;
 
-class TimerHumiditySensor
+class PeriodicHumiditySensor
 {
     public:
         struct Config
@@ -28,16 +28,16 @@ class TimerHumiditySensor
         };
 
     public:
-        explicit TimerHumiditySensor (Config config, boost::asio::io_service &service);
-        TimerHumiditySensor (const TimerHumiditySensor&) = delete;
-        TimerHumiditySensor& operator= (const TimerHumiditySensor&) = delete;
-        TimerHumiditySensor (TimerHumiditySensor&&) = delete;
-        TimerHumiditySensor& operator= (TimerHumiditySensor&&) = delete;
-        ~TimerHumiditySensor ();
+        explicit PeriodicHumiditySensor (Config config, boost::asio::io_service &service);
+        PeriodicHumiditySensor (const PeriodicHumiditySensor&) = delete;
+        PeriodicHumiditySensor& operator= (const PeriodicHumiditySensor&) = delete;
+        PeriodicHumiditySensor (PeriodicHumiditySensor&&) = delete;
+        PeriodicHumiditySensor& operator= (PeriodicHumiditySensor&&) = delete;
+        ~PeriodicHumiditySensor ();
 
     public:
         void launch ();
-        TimerHumiditySensorData getData () const noexcept;
+        PeriodicHumiditySensorData getData () const noexcept;
 
     private:
         void enablePower (const boost::system::error_code &errorCode);
@@ -47,7 +47,7 @@ class TimerHumiditySensor
 
     private:
         Config config;
-        TimerHumiditySensorData data;
+        PeriodicHumiditySensorData data;
 
     private:
         boost::asio::io_service &ioService;
@@ -58,4 +58,4 @@ class TimerHumiditySensor
         boost::movelib::unique_ptr<GpioOut> powerGpio;
 };
 
-#endif // TIMER_HUMIDITY_SENSOR_H_
+#endif // PERIODIC_HUMIDITY_SENSOR_H_

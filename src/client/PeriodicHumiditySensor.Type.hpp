@@ -3,10 +3,10 @@
  *   Date   : 2023
  ************************************************************/
 
-#ifndef TIMER_HUMIDITY_SENSOR_TYPE_H_
-#define TIMER_HUMIDITY_SENSOR_TYPE_H_
+#ifndef PERIODIC_HUMIDITY_SENSOR_TYPE_H_
+#define PERIODIC_HUMIDITY_SENSOR_TYPE_H_
 
-struct TimerHumiditySensorData
+struct PeriodicHumiditySensorData
 {
     float pressureHPa;
     float temperatureC;
@@ -15,4 +15,4 @@ struct TimerHumiditySensorData
     bool isValid;
 };
 
-#endif // TIMER_HUMIDITY_SENSOR_TYPE_H_
+#endif // PERIODIC_HUMIDITY_SENSOR_TYPE_H_

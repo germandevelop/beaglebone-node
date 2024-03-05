@@ -3,7 +3,7 @@
  *   Date   : 2023
  ************************************************************/
 
-#include "TimerDustSensor.hpp"
+#include "PeriodicDustSensor.hpp"
 
 #include <boost/chrono.hpp>
 #include <boost/move/make_unique.hpp>
@@ -15,7 +15,7 @@
 #include "GpioOut.hpp"
 
 
-TimerDustSensor::TimerDustSensor (TimerDustSensor::Config config, boost::asio::io_service &service)
+PeriodicDustSensor::PeriodicDustSensor (PeriodicDustSensor::Config config, boost::asio::io_service &service)
 :
     ioService { service },
     timer { ioService }
@@ -32,10 +32,10 @@ TimerDustSensor::TimerDustSensor (TimerDustSensor::Config config, boost::asio::i
     return;
 }
 
-TimerDustSensor::~TimerDustSensor () = default;
+PeriodicDustSensor::~PeriodicDustSensor () = default;
 
 
-void TimerDustSensor::launch ()
+void PeriodicDustSensor::launch ()
 {
     BOOST_LOG_TRIVIAL(debug) << "Dust sensor: initial warm up";
 
@@ -44,7 +44,7 @@ void TimerDustSensor::launch ()
     this->sensor->disableModuleForce();
     this->powerGpio->setHigh();
 
-    auto asyncCallback = boost::bind(&TimerDustSensor::enablePower, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicDustSensor::enablePower, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.initWarmTimeS));
     this->timer.async_wait(asyncCallback);
@@ -52,19 +52,19 @@ void TimerDustSensor::launch ()
     return;
 }
 
-TimerDustSensorData TimerDustSensor::getData () const noexcept
+PeriodicDustSensorData PeriodicDustSensor::getData () const noexcept
 {
     return this->data;
 }
 
 
-void TimerDustSensor::enablePower ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicDustSensor::enablePower ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     BOOST_LOG_TRIVIAL(debug) << "Dust sensor: power on";
 
     this->powerGpio->setHigh();
 
-    auto asyncCallback = boost::bind(&TimerDustSensor::enableModule, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicDustSensor::enableModule, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
     this->timer.async_wait(asyncCallback);
@@ -72,7 +72,7 @@ void TimerDustSensor::enablePower ([[maybe_unused]] const boost::system::error_c
     return;
 }
 
-void TimerDustSensor::enableModule ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicDustSensor::enableModule ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     bool isModuleLoaded = true;
 
@@ -91,7 +91,7 @@ void TimerDustSensor::enableModule ([[maybe_unused]] const boost::system::error_
 
     if (isModuleLoaded == true)
     {
-        auto asyncCallback = boost::bind(&TimerDustSensor::readData, this, boost::placeholders::_1);
+        auto asyncCallback = boost::bind(&PeriodicDustSensor::readData, this, boost::placeholders::_1);
 
         this->timer.expires_from_now(boost::posix_time::seconds(this->config.moduleTimeS));
         this->timer.async_wait(asyncCallback);
@@ -100,7 +100,7 @@ void TimerDustSensor::enableModule ([[maybe_unused]] const boost::system::error_
     {
         this->data.isValid = false;
  
-        auto asyncCallback = boost::bind(&TimerDustSensor::disable, this, boost::placeholders::_1);
+        auto asyncCallback = boost::bind(&PeriodicDustSensor::disable, this, boost::placeholders::_1);
 
         this->timer.expires_from_now(boost::posix_time::seconds(0));
         this->timer.async_wait(asyncCallback);
@@ -109,7 +109,7 @@ void TimerDustSensor::enableModule ([[maybe_unused]] const boost::system::error_
     return;
 }
 
-void TimerDustSensor::readData ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicDustSensor::readData ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     BOOST_LOG_TRIVIAL(debug) << "Dust sensor: read data";
 
@@ -136,7 +136,7 @@ void TimerDustSensor::readData ([[maybe_unused]] const boost::system::error_code
         BOOST_LOG_TRIVIAL(debug) << "Dust sensor: PM1 = " << this->data.pm1;
     }
 
-    auto asyncCallback = boost::bind(&TimerDustSensor::disable, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicDustSensor::disable, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(0));
     this->timer.async_wait(asyncCallback);
@@ -144,7 +144,7 @@ void TimerDustSensor::readData ([[maybe_unused]] const boost::system::error_code
     return;
 }
 
-void TimerDustSensor::disable ([[maybe_unused]] const boost::system::error_code &errorCode)
+void PeriodicDustSensor::disable ([[maybe_unused]] const boost::system::error_code &errorCode)
 {
     BOOST_LOG_TRIVIAL(debug) << "Dust sensor: disable module";
 
@@ -154,7 +154,7 @@ void TimerDustSensor::disable ([[maybe_unused]] const boost::system::error_code 
 
     this->powerGpio->setLow();
 
-    auto asyncCallback = boost::bind(&TimerDustSensor::enablePower, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&PeriodicDustSensor::enablePower, this, boost::placeholders::_1);
 
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.sleepTimeS));
     this->timer.async_wait(asyncCallback);
