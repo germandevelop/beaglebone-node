@@ -3,11 +3,14 @@
  # Date     : 2019
  # ================================================================
 
-# cmake -DCMAKE_BUILD_TYPE=Debug ..
+# cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON ..
 
 cmake_minimum_required(VERSION 3.22)
 
-if(NOT CMAKE_TOOLCHAIN_FILE)
+option(BUILD_TESTS "Enable tests building." OFF)
+if(BUILD_TESTS)
+    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/amd64.cmake")
+else()
     set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/armhf.cmake")
 endif()
 
@@ -18,6 +21,12 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 include(FetchContent)
+
+if(BUILD_TESTS)
+    enable_language(CXX)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 FetchContent_Declare(
     common_code
@@ -40,21 +49,25 @@ set(Boost_USE_RELEASE_LIBS ON)
 
 find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup)
 find_package(Threads REQUIRED)
-find_package(Cairomm REQUIRED)
-find_package(Pangomm REQUIRED)
-find_package(Pango REQUIRED)
-find_package(Glib REQUIRED)
-find_package(Glibmm REQUIRED)
-find_package(Giomm REQUIRED)
-find_package(harfbuzz REQUIRED)
-find_package(Alsa REQUIRED)
+
+if(BUILD_TESTS)
+else()
+    find_package(Cairomm REQUIRED)
+    find_package(Pangomm REQUIRED)
+    find_package(Pango REQUIRED)
+    find_package(Glib REQUIRED)
+    find_package(Glibmm REQUIRED)
+    find_package(Giomm REQUIRED)
+    find_package(harfbuzz REQUIRED)
+    find_package(Alsa REQUIRED)
+endif()
 
 
 # Create beaglebone config target
 add_library(bb_config INTERFACE)
 target_compile_features(bb_config
     INTERFACE
-        cxx_std_17
+        cxx_std_20
 )
 target_compile_definitions(bb_config
     INTERFACE
@@ -72,33 +85,47 @@ target_compile_options(bb_config
 )
 
 
-# Create beaglebone common target
-add_library(bb_common INTERFACE)
-target_include_directories(bb_common
+# Create beaglebone under testing target
+add_library(bb_testing INTERFACE)
+target_include_directories(bb_testing
     INTERFACE
         src
 )
+target_sources(bb_testing
+    INTERFACE
+        src/NodeB01.hpp
+        src/NodeB01.cpp
+)
+
+
+# Create beaglebone common target
+add_library(bb_common INTERFACE)
 target_sources(bb_common
     INTERFACE
-        src/GeneralData.hpp
-        src/GeneralData.cpp
-        src/ConfigParser.hpp
-        src/ConfigParser.cpp
+        src/Node.Type.hpp
+        src/Node.hpp
+        src/Node.cpp
+        src/Node.Mapper.hpp
+        src/Node.Mapper.cpp
+        src/Serializer.Type.hpp
+        src/Serializer.hpp
+        src/Serializer.cpp
         src/TCP/Connection.hpp
         src/TCP/Connection.cpp
 )
 
 add_subdirectory(external/common_code)
-target_link_libraries(bb_common INTERFACE node)
+target_link_libraries(bb_testing INTERFACE node)
 
-target_include_directories(bb_common INTERFACE ${BOOST_INCLUDE_DIRS})
-target_link_libraries(bb_common INTERFACE ${Boost_LIBRARIES})
-target_link_libraries(bb_common INTERFACE Threads::Threads)
+target_include_directories(bb_testing INTERFACE ${BOOST_INCLUDE_DIRS})
+target_link_libraries(bb_testing INTERFACE ${Boost_LIBRARIES})
+target_link_libraries(bb_testing INTERFACE Threads::Threads)
 
 
 # Create beaglebone server target
 add_executable(bb_server_software src/server/main.cpp)
 target_link_libraries(bb_server_software PRIVATE bb_config)
+target_link_libraries(bb_server_software PRIVATE bb_testing)
 target_link_libraries(bb_server_software PRIVATE bb_common)
 target_include_directories(bb_server_software
     PRIVATE
@@ -119,62 +146,62 @@ set_target_properties(bb_server_software
 
 
 # Create beaglebone client target
-add_executable(bb_client_software src/client/main.cpp)
-target_link_libraries(bb_server_software PRIVATE bb_config)
+add_executable(bb_client_software src/main.cpp)
+target_link_libraries(bb_client_software PRIVATE bb_config)
+target_link_libraries(bb_client_software PRIVATE bb_testing)
 target_link_libraries(bb_client_software PRIVATE bb_common)
 target_link_libraries(bb_client_software PRIVATE std_error)
 target_link_libraries(bb_client_software PRIVATE vs1838_control)
-target_include_directories(bb_client_software
-    PRIVATE
-        src/client
-)
 target_sources(bb_client_software
     PRIVATE
-        src/client/Board.hpp
-        src/client/Board.cpp
-        src/client/BoardB01.Type.hpp
-        src/client/BoardB01.hpp
-        src/client/BoardB01.cpp
-        src/client/PhotoResistor.hpp
-        src/client/PhotoResistor.cpp
-        src/client/StatusLed.Type.hpp
-        src/client/StatusLed.hpp
-        src/client/StatusLed.cpp
-        src/client/RemoteControl.Type.hpp
-        src/client/RemoteControl.hpp
-        src/client/RemoteControl.cpp
-        src/client/HumiditySensor.hpp
-        src/client/HumiditySensor.cpp
-        src/client/DustSensor.hpp
-        src/client/DustSensor.cpp
-        src/client/SmokeSensor.hpp
-        src/client/SmokeSensor.cpp
-        src/client/HdmiDisplay.hpp
-        src/client/HdmiDisplay.cpp
-        src/client/GpioOut.hpp
-        src/client/GpioOut.cpp
-        src/client/frame_buffer.h
-        src/client/frame_buffer.c
-        src/client/hdmi_speakers.h
-        src/client/hdmi_speakers.c
-        src/client/module.h
-        src/client/module.c
-        src/client/gpio_int.type.h
-        src/client/gpio_int.h
-        src/client/gpio_int.c
-        src/client/PeriodicHumiditySensor.Type.hpp
-        src/client/PeriodicHumiditySensor.hpp
-        src/client/PeriodicHumiditySensor.cpp
-        src/client/PeriodicDustSensor.Type.hpp
-        src/client/PeriodicDustSensor.hpp
-        src/client/PeriodicDustSensor.cpp
-        src/client/PeriodicSmokeSensor.Type.hpp
-        src/client/PeriodicSmokeSensor.hpp
-        src/client/PeriodicSmokeSensor.cpp
-        src/client/HdmiDisplayB01.hpp
-        src/client/HdmiDisplayB01.cpp
+        src/Board.hpp
+        src/Board.cpp
+        src/PhotoResistor.hpp
+        src/PhotoResistor.cpp
+        src/StatusLed.Type.hpp
+        src/StatusLed.hpp
+        src/StatusLed.cpp
+        src/RemoteControl.Type.hpp
+        src/RemoteControl.hpp
+        src/RemoteControl.cpp
+        src/GpioOut.hpp
+        src/GpioOut.cpp
+        src/GpioInt.hpp
+        src/GpioInt.cpp
+        src/BoardB01.hpp
+        src/BoardB01.cpp
+        src/OneShotHdmiDisplayB01.hpp
+        src/OneShotHdmiDisplayB01.cpp
+        src/OneShotLight.hpp
+        src/OneShotLight.cpp
+        src/PeriodicHumiditySensor.Type.hpp
+        src/PeriodicHumiditySensor.hpp
+        src/PeriodicHumiditySensor.cpp
+        src/PeriodicDustSensor.Type.hpp
+        src/PeriodicDustSensor.hpp
+        src/PeriodicDustSensor.cpp
+        src/PeriodicSmokeSensor.Type.hpp
+        src/PeriodicSmokeSensor.hpp
+        src/PeriodicSmokeSensor.cpp
+        src/PeriodicDoorSensor.Type.hpp
+        src/PeriodicDoorSensor.hpp
+        src/PeriodicDoorSensor.cpp
         src/TCP/Client.hpp
         src/TCP/Client.cpp
+        src/device/HumiditySensor.hpp
+        src/device/HumiditySensor.cpp
+        src/device/DustSensor.hpp
+        src/device/DustSensor.cpp
+        src/device/SmokeSensor.hpp
+        src/device/SmokeSensor.cpp
+        src/device/HdmiDisplay.hpp
+        src/device/HdmiDisplay.cpp
+        src/device/frame_buffer.h
+        src/device/frame_buffer.c
+        src/device/hdmi_speakers.h
+        src/device/hdmi_speakers.c
+        src/device/module.h
+        src/device/module.c
 )
 include_directories(bb_client_software
     PRIVATE
@@ -182,6 +209,7 @@ include_directories(bb_client_software
         ${Giomm_INCLUDE_DIRS}
         ${Glibmm_INCLUDE_DIRS}
         ${Pango_INCLUDE_DIR}
+        ${Harfbuzz_INCLUDE_DIRS}
         ${Cairomm_INCLUDE_DIRS}
         ${SigC++_INCLUDE_DIRS}
         ${Cairo_INCLUDE_DIRS}
@@ -192,7 +220,7 @@ target_link_libraries(bb_client_software
         ${Pangomm_LIBRARIES}
         ${Giomm_LIBRARIES}
         ${Pango_LIBRARIES}
-        harfbuzz::harfbuzz
+        ${Harfbuzz_LIBRARIES}
         ${Cairomm_LIBRARIES}
         ${SigC++_LIBRARIES}
         ${Cairo_LIBRARIES}
