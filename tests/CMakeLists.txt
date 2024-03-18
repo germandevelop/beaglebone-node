@@ -33,6 +33,7 @@ target_link_libraries(tests
         bb_testing
 )
 
+
 # Setup tests scanning
 include(GoogleTest)
 gtest_discover_tests(tests

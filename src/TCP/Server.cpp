@@ -5,6 +5,7 @@
 
 #include "TCP/Server.hpp"
 
+#include <boost/move/make_unique.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "TCP/Acceptor.hpp"

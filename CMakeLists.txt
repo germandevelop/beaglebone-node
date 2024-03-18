@@ -41,14 +41,15 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-set(Boost_USE_STATIC_LIBS OFF)
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME OFF)
-set(Boost_USE_DEBUG_LIBS OFF)
-set(Boost_USE_RELEASE_LIBS ON)
-
-find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
+
+set(Boost_USE_STATIC_LIBS       OFF)
+set(Boost_USE_MULTITHREADED     ON)
+set(Boost_USE_STATIC_RUNTIME    OFF)
+set(Boost_USE_DEBUG_LIBS        OFF)
+set(Boost_USE_RELEASE_LIBS      ON)
+find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup)
 
 if(BUILD_TESTS)
 else()
@@ -97,6 +98,9 @@ target_sources(bb_testing
         src/NodeB01.cpp
 )
 
+add_subdirectory(external/common_code)
+target_link_libraries(bb_testing INTERFACE node)
+
 
 # Create beaglebone common target
 add_library(bb_common INTERFACE)
@@ -113,13 +117,13 @@ target_sources(bb_common
         src/TCP/Connection.hpp
         src/TCP/Connection.cpp
 )
-
-add_subdirectory(external/common_code)
-target_link_libraries(bb_testing INTERFACE node)
-
-target_include_directories(bb_testing INTERFACE ${BOOST_INCLUDE_DIRS})
-target_link_libraries(bb_testing INTERFACE ${Boost_LIBRARIES})
-target_link_libraries(bb_testing INTERFACE Threads::Threads)
+target_compile_definitions(bb_common
+    INTERFACE
+        BOOST_LOG_DYN_LINK
+)
+target_include_directories(bb_common INTERFACE ${Boost_INCLUDE_DIRS})
+target_link_libraries(bb_common INTERFACE ${Boost_LIBRARIES})
+target_link_libraries(bb_common INTERFACE Threads::Threads)
 
 
 # Create beaglebone server target
