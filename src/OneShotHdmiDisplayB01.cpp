@@ -18,12 +18,17 @@
 #include "device/HdmiDisplay.hpp"
 #include "GpioOut.hpp"
 
+#include "device/hdmi_speakers.h"
+#include "std_error/std_error.h"
+
 
 OneShotHdmiDisplayB01::OneShotHdmiDisplayB01 (OneShotHdmiDisplayB01::Config config, boost::asio::io_context &context)
 :
     timer { context }
 {
     this->config = config;
+
+    this->isPowerEnabled = false;
 
     Pango::init();
 
@@ -40,22 +45,102 @@ OneShotHdmiDisplayB01::OneShotHdmiDisplayB01 (OneShotHdmiDisplayB01::Config conf
 OneShotHdmiDisplayB01::~OneShotHdmiDisplayB01 () = default;
 
 
-void OneShotHdmiDisplayB01::showOneShotData (Data data, std::size_t showTimeS)
+void OneShotHdmiDisplayB01::showOneShotData (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS)
 {
-    BOOST_LOG_TRIVIAL(debug) << "HDMI display: power on";
+    if (this->isPowerEnabled == true)
+    {
+        return;
+    }
+
+    this->isPowerEnabled = true;
+
+    BOOST_LOG_TRIVIAL(info) << "HDMI display : power on";
 
     this->enablePower();
 
-    auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::drawOneShotData, this, data, showTimeS, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
+    if (data.isAlarmAudio == true)
+    {
+        auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::playOneShotAlarm, this, boost::asio::placeholders::error);
+        this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
+        this->timer.async_wait(asyncCallback);
+    }
+    else if (data.isIntrusionAudio == true)
+    {
+        auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::playOneShotIntrusion, this, boost::asio::placeholders::error);
+        this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
+        this->timer.async_wait(asyncCallback);
+    }
+    else
+    {
+        auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::drawOneShotData, this, data, showTimeS, boost::asio::placeholders::error);
+        this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
+        this->timer.async_wait(asyncCallback);
+    }
+
+    return;
+}
+
+void OneShotHdmiDisplayB01::disableOneShotPower ()
+{
+    this->isPowerEnabled = false;
+
+    BOOST_LOG_TRIVIAL(info) << "HDMI display : power off";
+
+    this->timer.cancel();
+    
+    this->disablePower();
+
+    return;
+}
+
+
+void OneShotHdmiDisplayB01::playOneShotAlarm ([[maybe_unused]] const boost::system::error_code &error)
+{
+    BOOST_LOG_TRIVIAL(info) << "HDMI display : play alarm";
+
+    const boost::filesystem::path file = "/mnt/ro_data/audio/alarm.wav";
+
+    try
+    {
+        this->playAudio(std::move(file));
+    }
+    catch (const std::exception &excp)
+    {
+        BOOST_LOG_TRIVIAL(error) << "HDMI display : alarm error = " << excp.what();
+    }
+
+    auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::playOneShotAlarm, this, boost::asio::placeholders::error);
+    this->timer.expires_from_now(boost::posix_time::seconds(3U));
+    this->timer.async_wait(asyncCallback);
+    
+    return;
+}
+
+void OneShotHdmiDisplayB01::playOneShotIntrusion ([[maybe_unused]] const boost::system::error_code &error)
+{
+    BOOST_LOG_TRIVIAL(info) << "HDMI display : play intrusion";
+
+    const boost::filesystem::path file = "/mnt/ro_data/audio/intrusion.wav";
+
+    try
+    {
+        this->playAudio(std::move(file));
+    }
+    catch (const std::exception &excp)
+    {
+        BOOST_LOG_TRIVIAL(error) << "HDMI display : intrusion error = " << excp.what();
+    }
+
+    auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::disableOneShotPower, this, boost::asio::placeholders::error);
+    this->timer.expires_from_now(boost::posix_time::seconds(0U));
     this->timer.async_wait(asyncCallback);
 
     return;
 }
 
-void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [[maybe_unused]] const boost::system::error_code &error)
+void OneShotHdmiDisplayB01::drawOneShotData (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS, [[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "HDMI display: draw data";
+    BOOST_LOG_TRIVIAL(info) << "HDMI display : draw data";
 
     try
     {
@@ -78,7 +163,7 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
 
         {
             std::stringstream dataStream;
-            dataStream << "Дым/Газ(" << data.smokeAdcThresholdB01 << "): ";
+            dataStream << "Дым/Газ(" << data.SMOKE_THRESHOLD_ADC << "): ";
 
             HdmiDisplay::Text text;
             text.text   = dataStream.str();
@@ -88,16 +173,16 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
             text.y      = 95.0;
             this->display->drawText(std::move(text));
             
-            if (data.smokeDataB01.isValid == true)
+            if (data.smokeData.isValid == true)
             {
                 dataStream.str("");
                 dataStream.clear();
-                dataStream << "                         " << data.smokeDataB01.adcValue;
+                dataStream << "                         " << data.smokeData.adcValue;
 
                 text.text   = dataStream.str();
                 text.font   = "Sans Bold 28";
 
-                if (data.smokeDataB01.adcValue > data.smokeAdcThresholdB01)
+                if (data.smokeData.adcValue > data.SMOKE_THRESHOLD_ADC)
                 {
                     text.color = HdmiDisplay::COLOR::RED;
                 }
@@ -116,23 +201,24 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
 
             dataStream << std::fixed << std::setprecision(1);
             dataStream << "Влажность: ";
-            if (data.humidityDataB01.isValid == true)
+
+            if (data.humidityData.isValid == true)
             {
-                dataStream << std::setw(6) << data.humidityDataB01.humidityPct;
+                dataStream << std::setw(6) << data.humidityData.humidityPct;
             }
             dataStream << " %\n";
 
             dataStream << "Температура: ";
-            if (data.humidityDataB01.isValid == true)
+            if (data.humidityData.isValid == true)
             {
-                dataStream << std::setw(6) << data.humidityDataB01.temperatureC;
+                dataStream << std::setw(6) << data.humidityData.temperatureC;
             }
             dataStream << " C\n";
 
             dataStream << "Давление:  ";
-            if (data.humidityDataB01.isValid == true)
+            if (data.humidityData.isValid == true)
             {
-                dataStream << std::setw(6) << data.humidityDataB01.pressureHPa;
+                dataStream << std::setw(6) << data.humidityData.pressureHPa;
             }
             dataStream << " гПа";
 
@@ -149,23 +235,23 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
             std::stringstream dataStream;
 
             dataStream << "Частицы PM10: ";
-            if (data.dustDataB01.isValid == true)
+            if (data.dustData.isValid == true)
             {
-                dataStream << data.dustDataB01.pm10;
+                dataStream << data.dustData.pm10;
             }
             dataStream << " мкг/м3\n";
 
             dataStream << "Частицы PM2.5: ";
-            if (data.dustDataB01.isValid == true)
+            if (data.dustData.isValid == true)
             {
-                dataStream << data.dustDataB01.pm2p5;
+                dataStream << data.dustData.pm2p5;
             }
             dataStream << " мкг/м3\n";
 
             dataStream << "Частицы PM1: ";
-            if (data.dustDataB01.isValid == true)
+            if (data.dustData.isValid == true)
             {
-                dataStream << data.dustDataB01.pm1;
+                dataStream << data.dustData.pm1;
             }
             dataStream << " мкг/м3";
 
@@ -262,7 +348,7 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
         {
             std::stringstream dataStream;
             dataStream << std::fixed << std::setprecision(1);
-            dataStream << "Дверь(" << std::setw(4) << data.temperatureThresholdT01 << "C): ";
+            dataStream << "Дверь(" << std::setw(4) << data.T01_LOW_TEMPERATURE_C << "/" << std::setw(4) << data.T01_HIGH_TEMPERATURE_C << "C): ";
 
             HdmiDisplay::Text text;
             text.text   = dataStream.str();
@@ -284,7 +370,7 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
 
                     if (data.humidityDataT01.isValid == true)
                     {
-                        if (data.humidityDataT01.temperatureC > data.temperatureThresholdT01)
+                        if (data.humidityDataT01.temperatureC < data.T01_LOW_TEMPERATURE_C)    // Without hysteresis for now
                         {
                             text.color = HdmiDisplay::COLOR::GREEN;
                         }
@@ -300,7 +386,7 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
 
                     if (data.humidityDataT01.isValid == true)
                     {
-                        if (data.humidityDataT01.temperatureC > data.temperatureThresholdT01)
+                        if (data.humidityDataT01.temperatureC > data.T01_HIGH_TEMPERATURE_C) // Without hysteresis for now
                         {
                             text.color = HdmiDisplay::COLOR::RED;
                         }
@@ -322,7 +408,7 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
             dataStream.clear();
             dataStream << "\nОповещение: ";
 
-            if (data.isDoorNotificationEnabledT01 == true)
+            if (data.isWarningEnabled == true)
             {
                 dataStream << "включено";
             }
@@ -392,11 +478,11 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
 
             this->display->drawImage(std::move(image));
         }
-
     }
+
     catch (const std::exception &excp)
     {
-        BOOST_LOG_TRIVIAL(debug) << "HDMI display: enable error = " << excp.what();
+        BOOST_LOG_TRIVIAL(error) << "HDMI display : enable error = " << excp.what();
     }
 
     try
@@ -405,25 +491,72 @@ void OneShotHdmiDisplayB01::drawOneShotData (Data data, std::size_t showTimeS, [
     }
     catch (const std::exception &excp)
     {
-        BOOST_LOG_TRIVIAL(debug) << "HDMI display: disable error = " << excp.what();
+        BOOST_LOG_TRIVIAL(error) << "HDMI display : enable error = " << excp.what();
     }
 
     auto asyncCallback = boost::bind(&OneShotHdmiDisplayB01::disableOneShotPower, this, boost::asio::placeholders::error);
     this->timer.expires_from_now(boost::posix_time::seconds(showTimeS));
     this->timer.async_wait(asyncCallback);
 
+    if (data.isWarningAudio == true)
+    {
+        BOOST_LOG_TRIVIAL(info) << "HDMI display : play warning";
+
+        const boost::filesystem::path file = "/mnt/ro_data/audio/warning.wav";
+
+        try
+        {
+            this->playAudio(std::move(file));
+        }
+        catch (const std::exception &excp)
+        {
+            BOOST_LOG_TRIVIAL(error) << "HDMI display : warning error = " << excp.what();
+        }
+    }
+
     return;
 }
 
 void OneShotHdmiDisplayB01::disableOneShotPower ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "HDMI display: power off";
+    this->isPowerEnabled = false;
+
+    BOOST_LOG_TRIVIAL(info) << "HDMI display : power off";
 
     this->disablePower();
 
     return;
 }
 
+void OneShotHdmiDisplayB01::playAudio (boost::filesystem::path file) const
+{
+    // arecord -t wav -r 48000 -c 2 -f S16_LE file.wav
+
+    std_error_t error;
+    std_error_init(&error);
+
+    hdmi_speakers_config_t config;
+    config.channels = 2U;
+    config.rate_Hz  = 48000U;
+
+    hdmi_speakers_t hdmi_speakers;
+
+    if (hdmi_speakers_init(&hdmi_speakers, &config, &error) != STD_SUCCESS)
+    {
+        boost::throw_exception(std::runtime_error { error.text });
+    }
+
+    if (hdmi_speakers_play_file(&hdmi_speakers, file.string().c_str(), &error) != STD_SUCCESS)
+    {
+        hdmi_speakers_deinit(&hdmi_speakers);
+
+        boost::throw_exception(std::runtime_error { error.text });
+    }
+
+    hdmi_speakers_deinit(&hdmi_speakers);
+
+    return;
+}
 
 void OneShotHdmiDisplayB01::enablePower ()
 {

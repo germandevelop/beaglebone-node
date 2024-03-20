@@ -10,6 +10,7 @@
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/container/vector.hpp>
 #include <boost/move/unique_ptr.hpp>
+#include <boost/function.hpp>
 
 #include "PeriodicSmokeSensor.Type.hpp"
 
@@ -25,8 +26,10 @@ class PeriodicSmokeSensor
             std::size_t warmTimeS;
             std::size_t sampleCount;
             std::size_t sampleTimeS;
-            std::size_t sleepTimeS;
+            std::size_t sleepTimeMin;
             std::size_t powerGpio;
+
+            boost::function<void(PeriodicSmokeSensorData)> processCallback;
         };
 
     public:
@@ -39,7 +42,6 @@ class PeriodicSmokeSensor
 
     public:
         void launch ();
-        PeriodicSmokeSensorData getData () const noexcept;
 
     private:
         void enablePower (const boost::system::error_code &error);
@@ -48,7 +50,6 @@ class PeriodicSmokeSensor
 
     private:
         Config config;
-        PeriodicSmokeSensorData data;
 
     private:
         boost::asio::deadline_timer timer;

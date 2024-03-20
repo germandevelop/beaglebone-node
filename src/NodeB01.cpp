@@ -51,6 +51,9 @@ void NodeB01::updateTime (int64_t timeMS)
 
 NodeB01::State NodeB01::getState (int64_t timeMS)
 {
+    constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
+    constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
+    
     this->updateTime(timeMS);
 
     NodeB01::State state;
@@ -78,7 +81,7 @@ NodeB01::State NodeB01::getState (int64_t timeMS)
 
     else if (this->mode == GUARD_MODE)
     {
-        if (displayDurationMS < NodeB01::DISPLAY_DURATION_MS)
+        if (displayDurationMS < DISPLAY_DURATION_MS)
         {
             state.isDisplayON       = false;
             state.isWarningAudio    = false;
@@ -98,7 +101,7 @@ NodeB01::State NodeB01::getState (int64_t timeMS)
 
     else if (this->mode == SILENCE_MODE)
     {
-        if (displayDurationMS < NodeB01::DISPLAY_DURATION_MS)
+        if (displayDurationMS < DISPLAY_DURATION_MS)
         {
             state.isDisplayON       = true;
             state.isWarningAudio    = false;
@@ -134,7 +137,7 @@ NodeB01::State NodeB01::getState (int64_t timeMS)
             state.isAlarmAudio      = false;
         }
 
-        if (lightDurationMS < NodeB01::LIGHT_DURATION_MS)
+        if (lightDurationMS < LIGHT_DURATION_MS)
         {
             if (isDark == true)
             {
@@ -174,7 +177,7 @@ NodeB01::State NodeB01::getState (int64_t timeMS)
     return state;
 }
 
-std::size_t NodeB01::processLuminosity (NodeB01::Luminosity data)
+void NodeB01::processLuminosity (NodeB01::Luminosity data)
 {
     if (data.isValid == true)
     {
@@ -192,11 +195,14 @@ std::size_t NodeB01::processLuminosity (NodeB01::Luminosity data)
         this->isDark = false;
     }
 
-    return NodeB01::LUMINOSITY_PERIOD_MIN;
+    return;
 }
 
 void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
 {
+    constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
+    constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
+
     this->updateTime(timeMS);
 
     // Set SILENCE mode
@@ -292,7 +298,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
         {
             const int64_t lightDurationMS = timeMS - this->lightStartTimeMS;
 
-            if (lightDurationMS > NodeB01::LIGHT_DURATION_MS)
+            if (lightDurationMS > LIGHT_DURATION_MS)
             {
                 this->lightStartTimeMS = timeMS;
             }
@@ -306,7 +312,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
         {
             const int64_t displayDurationMS = timeMS - this->displayStartTimeMS;
 
-            if (displayDurationMS > NodeB01::DISPLAY_DURATION_MS)
+            if (displayDurationMS > DISPLAY_DURATION_MS)
             {
                 this->displayStartTimeMS = timeMS;
             }
@@ -344,20 +350,23 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
 
 void NodeB01::processFrontMovement (int64_t timeMS)
 {
+    constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
+    constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
+
     this->updateTime(timeMS);
 
     if (this->mode == SILENCE_MODE)
     {
         const int64_t lightDurationMS = timeMS - this->lightStartTimeMS;
 
-        if (lightDurationMS > NodeB01::LIGHT_DURATION_MS)
+        if (lightDurationMS > LIGHT_DURATION_MS)
         {
             this->lightStartTimeMS = timeMS;
         }
 
         const int64_t displayDurationMS = timeMS - this->displayStartTimeMS;
 
-        if (displayDurationMS > NodeB01::DISPLAY_DURATION_MS)
+        if (displayDurationMS > DISPLAY_DURATION_MS)
         {
             this->displayStartTimeMS = timeMS;
         }
@@ -443,6 +452,9 @@ void NodeB01::processSmoke (PeriodicSmokeSensorData data)
 
 void NodeB01::processMessage (const NodeMsg &inMsg, int64_t timeMS)
 {
+    constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
+    constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
+
     this->updateTime(timeMS);
 
     if (inMsg.cmdID == SET_INTRUSION)
@@ -455,7 +467,7 @@ void NodeB01::processMessage (const NodeMsg &inMsg, int64_t timeMS)
             {
                 const int64_t displayDurationMS = timeMS - this->displayStartTimeMS;
 
-                if (displayDurationMS > NodeB01::DISPLAY_DURATION_MS)
+                if (displayDurationMS > DISPLAY_DURATION_MS)
                 {
                     this->displayStartTimeMS = timeMS;
                 }
@@ -471,7 +483,7 @@ void NodeB01::processMessage (const NodeMsg &inMsg, int64_t timeMS)
         {
             const int64_t lightDurationMS = timeMS - this->lightStartTimeMS;
 
-            if (lightDurationMS > NodeB01::LIGHT_DURATION_MS)
+            if (lightDurationMS > LIGHT_DURATION_MS)
             {
                 this->lightStartTimeMS = timeMS;
             }
@@ -580,4 +592,35 @@ void NodeB01::setConfig (NodeB01::Config config)
 NodeB01::Config NodeB01::getConfig () const
 {
     return this->config;
+}
+
+
+PeriodicHumiditySensorData NodeB01::getHumidityData () const noexcept
+{
+    return this->humidityData;
+}
+
+PeriodicDustSensorData NodeB01::getDustData () const noexcept
+{
+    return this->dustData;
+}
+
+PeriodicSmokeSensorData NodeB01::getSmokeData () const noexcept
+{
+    return this->smokeData;
+}
+
+PeriodicHumiditySensorData NodeB01::getHumidityDataT01 () const noexcept
+{
+    return this->humidityDataT01;
+}
+
+PeriodicDoorSensorData NodeB01::getDoorDataT01 () const noexcept
+{
+    return this->doorDataT01;
+}
+
+PeriodicHumiditySensorData NodeB01::getHumidityDataB02 () const noexcept
+{
+    return this->humidityDataB02;
 }

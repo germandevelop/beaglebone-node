@@ -8,6 +8,7 @@
 #include <boost/asio/error.hpp>
 #include <boost/move/make_unique.hpp>
 #include <boost/bind/bind.hpp>
+#include <boost/asio/placeholders.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "TCP/Connection.hpp"
@@ -15,13 +16,14 @@
 using namespace TCP;
 
 
-Client::Client (Client::Config config)
+Client::Client (Client::Config config, boost::asio::io_context &context)
 :
-    connectionTimer { this->ioService },
-    endPoint(boost::asio::ip::address::from_string(config.ipAddress), config.port)
+    ioContext { context },
+    timer { context },
+    endPoint(boost::asio::ip::address::from_string(config.ip), config.port)
 {
     this->config = std::move(config);
-    
+ 
     return;
 }
 
@@ -30,21 +32,12 @@ Client::~Client () = default;
 
 void Client::start ()
 {
-    this->ioService.restart();
-    this->ioServiceWork = boost::movelib::make_unique<boost::asio::io_service::work>(this->ioService);
-    Client::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioService);
+    Client::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
 
     auto messageCallback = boost::bind(&Client::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
     auto errorCallback = boost::bind(&Client::processError, this, boost::placeholders::_1);
     this->connection = boost::movelib::make_unique<Connection>(boost::move(socket), messageCallback, errorCallback);
     this->connection->connect(this->endPoint);
-
-    auto threadCallback =   [this] ()
-                            {
-                                this->ioService.run();
-                            };
-
-    this->thread = boost::movelib::make_unique<boost::thread>(threadCallback);
 
     return;
 }
@@ -52,8 +45,6 @@ void Client::start ()
 void Client::stop ()
 {
     this->connection->stop();
-    this->ioService.stop();
-    this->thread->join();
 
     return;
 }
@@ -76,17 +67,17 @@ void Client::receiveMessage (int descriptor, std::string message)
 
 void Client::processError ([[maybe_unused]] int descriptor)
 {
-    auto asyncCallback = boost::bind(&Client::onTimerConnect, this, boost::placeholders::_1);
+    auto asyncCallback = boost::bind(&Client::onTimerConnect, this, boost::asio::placeholders::error);
 
-    this->connectionTimer.expires_from_now(boost::posix_time::seconds(10));
-    this->connectionTimer.async_wait(asyncCallback);
+    this->timer.expires_from_now(boost::posix_time::seconds(10));
+    this->timer.async_wait(asyncCallback);
 
     return;
 }
 
-void Client::onTimerConnect ([[maybe_unused]] const boost::system::error_code &errorCode)
+void Client::onTimerConnect ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Client : try to reconnect";
+    BOOST_LOG_TRIVIAL(info) << "Client : try to reconnect";
 
     this->connection->connect(this->endPoint);
 

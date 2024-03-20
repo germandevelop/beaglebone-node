@@ -9,6 +9,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/move/unique_ptr.hpp>
+#include <boost/function.hpp>
 
 #include "PeriodicHumiditySensor.Type.hpp"
 
@@ -23,8 +24,10 @@ class PeriodicHumiditySensor
             std::size_t initWarmTimeS;
             std::size_t warmTimeS;
             std::size_t moduleTimeS;
-            std::size_t sleepTimeS;
+            std::size_t sleepTimeMin;
             std::size_t powerGpio;
+
+            boost::function<void(PeriodicHumiditySensorData)> processCallback;
         };
 
     public:
@@ -37,7 +40,6 @@ class PeriodicHumiditySensor
 
     public:
         void launch ();
-        PeriodicHumiditySensorData getData () const noexcept;
 
     private:
         void enablePower (const boost::system::error_code &error);
@@ -47,7 +49,6 @@ class PeriodicHumiditySensor
 
     private:
         Config config;
-        PeriodicHumiditySensorData data;
 
     private:
         boost::asio::deadline_timer timer;

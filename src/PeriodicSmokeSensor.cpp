@@ -41,9 +41,7 @@ PeriodicSmokeSensor::~PeriodicSmokeSensor () = default;
 
 void PeriodicSmokeSensor::launch ()
 {
-    BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: initial warm up";
-
-    this->data.isValid = false;
+    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: initial warm up";
 
     this->powerGpio->setHigh();
 
@@ -54,15 +52,10 @@ void PeriodicSmokeSensor::launch ()
     return;
 }
 
-PeriodicSmokeSensorData PeriodicSmokeSensor::getData () const noexcept
-{
-    return this->data;
-}
-
 
 void PeriodicSmokeSensor::enablePower ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: power on";
+    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: power on";
 
     this->powerGpio->setHigh();
 
@@ -78,7 +71,7 @@ void PeriodicSmokeSensor::readData ([[maybe_unused]] const boost::system::error_
     const auto adcValue = this->sensor->readAdcValue();
     this->buffer.push_back(adcValue);
 
-    BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: read ADC value = " << adcValue;
+    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: read ADC value = " << adcValue;
 
     if (this->buffer.size() >= this->config.sampleCount)
     {
@@ -86,20 +79,25 @@ void PeriodicSmokeSensor::readData ([[maybe_unused]] const boost::system::error_
 
         boost::range::nth_element(this->buffer, (boost::begin(this->buffer) + sampleHalf), boost::pfr::greater<size_t>());
 
-        this->data.isValid = false;
-        this->data.adcValue = 0U;
+        PeriodicSmokeSensorData data;
+        data.isValid = false;
+        data.adcValue = 0U;
 
         for (auto itr = boost::const_begin(this->buffer); itr != (boost::const_begin(this->buffer) + sampleHalf); ++itr)
         {
-            this->data.adcValue += *itr;
+            data.adcValue += *itr;
         }
-        
-        this->data.adcValue = this->data.adcValue / sampleHalf;
-        this->data.isValid  = true;
-
-        BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: average ADC value = " << this->data.adcValue;
-
         this->buffer.clear();
+        
+        data.adcValue   = data.adcValue / sampleHalf;
+        data.isValid    = true;
+
+        BOOST_LOG_TRIVIAL(info) << "Smoke sensor: average ADC value = " << data.adcValue;
+
+        if (this->config.processCallback != nullptr)
+        {
+            this->config.processCallback(data);
+        }
 
         auto asyncCallback = boost::bind(&PeriodicSmokeSensor::disablePower, this, boost::asio::placeholders::error);
         this->timer.expires_from_now(boost::posix_time::seconds(0));
@@ -111,17 +109,18 @@ void PeriodicSmokeSensor::readData ([[maybe_unused]] const boost::system::error_
         this->timer.expires_from_now(boost::posix_time::seconds(this->config.sampleTimeS));
         this->timer.async_wait(asyncCallback);
     }
+
     return;
 }
 
 void PeriodicSmokeSensor::disablePower ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Smoke sensor: power off";
+    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: power off";
 
     this->powerGpio->setLow();
 
     auto asyncCallback = boost::bind(&PeriodicSmokeSensor::enablePower, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(this->config.sleepTimeS));
+    this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
     this->timer.async_wait(asyncCallback);
 
     return;

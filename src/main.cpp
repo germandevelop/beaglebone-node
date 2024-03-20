@@ -55,39 +55,3 @@ int main (int argc, char *argv[])
 
     return 0;
 }
-
-
-/* NOTE: How to use speakers
-
-// arecord -t wav -r 48000 -c 2 -f S16_LE file.wav
-
-for (int i = 0; i < 3; ++i)
-    {
-        std_error_t error;
-        std_error_init(&error);
-
-        hdmi_speakers_config_t config;
-        config.channels = 2U;
-        config.rate_Hz = 48000U;
-
-        hdmi_speakers_t hdmi_speakers;
-
-        if (hdmi_speakers_init(&hdmi_speakers, &config, &error) != STD_SUCCESS)
-        {
-            printf("Error 0: %s\n", error.text);
-
-            return 0;
-        }
-
-        if (hdmi_speakers_play_file(&hdmi_speakers, "/tmp/me.wav", &error) != STD_SUCCESS)
-        {
-            hdmi_speakers_deinit(&hdmi_speakers);
-
-            printf("Error 1: %s\n", error.text);
-
-            return 0;
-        }
-
-        hdmi_speakers_deinit(&hdmi_speakers);
-    }
-*/

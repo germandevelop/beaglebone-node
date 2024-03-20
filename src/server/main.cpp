@@ -3,10 +3,6 @@
  *   Date   : 2019
  ************************************************************/
 
-#include <iostream>
-#include <thread>
-#include <chrono>
-
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
@@ -14,6 +10,7 @@
 #include <boost/log/utility/setup/console.hpp>
 
 #include "TCP/Server.hpp"
+#include "TCP/Client.hpp"
 
 
 void initLogging ()
@@ -49,6 +46,17 @@ void receiveMessage (int descriptor, std::string message)
 int main (int argc, char *argv[])
 {
     initLogging();
+
+    boost::asio::io_context io_context;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work = boost::asio::make_work_guard(io_context);
+
+    TCP::Client::Config config;
+    config.ip = "127.0.0.1";
+    config.port = 4444;
+    config.processMessageCallback = receiveMessage;
+    TCP::Client client { config, io_context };
+
+    io_context.run();
 
 
     /*try

@@ -37,10 +37,10 @@ namespace TCP
             void sendMessage (std::string message);
 
         private:
-            void onMessageReceived (const boost::system::error_code &errorCode, std::size_t bytesTransferred);
-            void onMessageSent (const boost::system::error_code &errorCode, std::size_t bytesTransferred);
-            void onSocketConnect (const boost::system::error_code &errorCode);
-            void onSocketError (const boost::system::error_code &errorCode);
+            void onMessageReceived (const boost::system::error_code &error, std::size_t bytesTransferred);
+            void onMessageSent (const boost::system::error_code &error, std::size_t bytesTransferred);
+            void onSocketConnect (const boost::system::error_code &error);
+            void onSocketError (const boost::system::error_code &error);
 
             void waitInputMessage ();
             void waitSocketError ();

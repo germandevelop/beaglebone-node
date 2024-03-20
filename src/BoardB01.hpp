@@ -8,6 +8,9 @@
 
 #include "Board.hpp"
 #include "RemoteControl.Type.hpp"
+#include "PeriodicHumiditySensor.Type.hpp"
+#include "PeriodicSmokeSensor.Type.hpp"
+#include "PeriodicDustSensor.Type.hpp"
 
 class NodeB01;
 class PeriodicDustSensor;
@@ -40,6 +43,9 @@ class BoardB01 : public Board
         void updateState ();
 
     private:
+        void processHumiditySensor (PeriodicHumiditySensorData data);
+        void processDustSensor (PeriodicDustSensorData data);
+        void processSmokeSensor (PeriodicSmokeSensorData data);
         void processFrontPir ();
 
     private:

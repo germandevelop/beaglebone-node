@@ -36,9 +36,7 @@ PeriodicHumiditySensor::~PeriodicHumiditySensor () = default;
 
 void PeriodicHumiditySensor::launch ()
 {
-    BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: initial warm up";
-
-    this->data.isValid = false;
+    BOOST_LOG_TRIVIAL(info) << "Humidity sensor: initial warm up";
 
     this->sensor->disableModuleForce();
     this->powerGpio->setHigh();
@@ -50,15 +48,10 @@ void PeriodicHumiditySensor::launch ()
     return;
 }
 
-PeriodicHumiditySensorData PeriodicHumiditySensor::getData () const noexcept
-{
-    return this->data;
-}
-
 
 void PeriodicHumiditySensor::enablePower ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: power on";
+    BOOST_LOG_TRIVIAL(info) << "Humidity sensor: power on";
 
     this->powerGpio->setHigh();
 
@@ -73,7 +66,7 @@ void PeriodicHumiditySensor::enableModule ([[maybe_unused]] const boost::system:
 {
     bool isModuleLoaded = true;
 
-    BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: enable module";
+    BOOST_LOG_TRIVIAL(info) << "Humidity sensor: enable module";
 
     try
     {
@@ -94,8 +87,6 @@ void PeriodicHumiditySensor::enableModule ([[maybe_unused]] const boost::system:
     }
     else
     {
-        this->data.isValid = false;
-
         auto asyncCallback = boost::bind(&PeriodicHumiditySensor::disable, this, boost::asio::placeholders::error);
         this->timer.expires_from_now(boost::posix_time::seconds(0));
         this->timer.async_wait(asyncCallback);
@@ -106,29 +97,35 @@ void PeriodicHumiditySensor::enableModule ([[maybe_unused]] const boost::system:
 
 void PeriodicHumiditySensor::readData ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: read data";
+    BOOST_LOG_TRIVIAL(info) << "Humidity sensor: read data";
 
-    this->data.isValid = false;
+    PeriodicHumiditySensorData data;
+    data.isValid = false;
 
     try
     {
-        const auto data = this->sensor->readData();
+        const auto newData = this->sensor->readData();
 
-        this->data.pressureHPa  = data.pressureHPa;
-        this->data.temperatureC = data.temperatureC;
-        this->data.humidityPct  = data.humidityPct;
-        this->data.isValid      = true;
+        data.pressureHPa    = newData.pressureHPa;
+        data.temperatureC   = newData.temperatureC;
+        data.humidityPct    = newData.humidityPct;
+        data.isValid        = true;
     }
     catch (const std::exception &excp)
     {
         BOOST_LOG_TRIVIAL(error) << "Humidity sensor: read error = " << excp.what();
     }
 
-    if (this->data.isValid == true)
+    if (data.isValid == true)
     {
-        BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: Temperature (C) = " << this->data.temperatureC;
-        BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: Pressure (hPa) = " << this->data.pressureHPa;
-        BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: Humidity (%) = " << this->data.humidityPct;
+        BOOST_LOG_TRIVIAL(info) << "Humidity sensor: Temperature (C) = " << data.temperatureC;
+        BOOST_LOG_TRIVIAL(info) << "Humidity sensor: Pressure (hPa) = " << data.pressureHPa;
+        BOOST_LOG_TRIVIAL(info) << "Humidity sensor: Humidity (%) = " << data.humidityPct;
+    }
+
+    if (this->config.processCallback != nullptr)
+    {
+        this->config.processCallback(data);
     }
 
     auto asyncCallback = boost::bind(&PeriodicHumiditySensor::disable, this, boost::asio::placeholders::error);
@@ -140,16 +137,16 @@ void PeriodicHumiditySensor::readData ([[maybe_unused]] const boost::system::err
 
 void PeriodicHumiditySensor::disable ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: disable module";
+    BOOST_LOG_TRIVIAL(info) << "Humidity sensor: disable module";
 
     this->sensor->disableModuleForce();
 
-    BOOST_LOG_TRIVIAL(debug) << "Humidity sensor: power off";
+    BOOST_LOG_TRIVIAL(info) << "Humidity sensor: power off";
 
     this->powerGpio->setLow();
 
     auto asyncCallback = boost::bind(&PeriodicHumiditySensor::enablePower, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(this->config.sleepTimeS));
+    this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
     this->timer.async_wait(asyncCallback);
 
     return;

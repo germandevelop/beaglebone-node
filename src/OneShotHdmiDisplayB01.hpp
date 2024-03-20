@@ -9,11 +9,9 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/move/unique_ptr.hpp>
+#include <boost/filesystem.hpp>
 
-#include "PeriodicHumiditySensor.Type.hpp"
-#include "PeriodicSmokeSensor.Type.hpp"
-#include "PeriodicDustSensor.Type.hpp"
-#include "PeriodicDoorSensor.Type.hpp"
+#include "OneShotHdmiDisplayB01.Type.hpp"
 
 class HdmiDisplay;
 class GpioOut;
@@ -28,22 +26,6 @@ class OneShotHdmiDisplayB01
         };
 
     public:
-        struct Data
-        {
-            PeriodicHumiditySensorData humidityDataB01;
-            PeriodicSmokeSensorData smokeDataB01;
-            PeriodicDustSensorData dustDataB01;
-            decltype(smokeDataB01.adcValue) smokeAdcThresholdB01;
-
-            PeriodicHumiditySensorData humidityDataT01;
-            PeriodicDoorSensorData doorDataT01;
-            bool isDoorNotificationEnabledT01;
-            decltype(smokeDataB01.adcValue) temperatureThresholdT01;
-
-            PeriodicHumiditySensorData humidityDataB02;
-        };
-
-    public:
         explicit OneShotHdmiDisplayB01 (Config config, boost::asio::io_context &context);
         OneShotHdmiDisplayB01 (const OneShotHdmiDisplayB01&) = delete;
         OneShotHdmiDisplayB01& operator= (const OneShotHdmiDisplayB01&) = delete;
@@ -52,11 +34,17 @@ class OneShotHdmiDisplayB01
         ~OneShotHdmiDisplayB01 ();
 
     public:
-        void showOneShotData (Data data, std::size_t showTimeS);
+        void showOneShotData (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS);
+        void disableOneShotPower ();
 
     private:
-        void drawOneShotData (Data data, std::size_t showTimeS, const boost::system::error_code &error);
+        void playOneShotAlarm (const boost::system::error_code &error);
+        void playOneShotIntrusion (const boost::system::error_code &error);
+        void drawOneShotData (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS, const boost::system::error_code &error);
         void disableOneShotPower (const boost::system::error_code &error);
+
+    private:
+        void playAudio (boost::filesystem::path file) const;
 
     private:
         void enablePower ();
@@ -69,6 +57,7 @@ class OneShotHdmiDisplayB01
         boost::asio::deadline_timer timer;
         boost::movelib::unique_ptr<HdmiDisplay> display;
         boost::movelib::unique_ptr<GpioOut> powerGpio;
+        bool isPowerEnabled;
 };
 
 #endif // ONE_SHOT_HDMI_DISPLAY_B01_H_

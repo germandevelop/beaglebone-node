@@ -21,13 +21,17 @@ class NodeB01
 {
     public:
         static constexpr float DARKNESS_LEVEL_LUX           = 5.5F;
-        static constexpr std::size_t SMOKE_THRESHOLD_ADC    = 1000U;
+        static constexpr std::size_t SMOKE_THRESHOLD_ADC    = 200U;
         static constexpr float T01_HIGH_TEMPERATURE_C       = 25.0F;
         static constexpr float T01_LOW_TEMPERATURE_C        = 15.0F;
 
-        static constexpr std::size_t LIGHT_DURATION_MS      = (30U * 1000U);
-        static constexpr std::size_t DISPLAY_DURATION_MS    = (60U * 1000U);
+        static constexpr std::size_t LIGHT_DURATION_S       = 30U;
+        static constexpr std::size_t DISPLAY_DURATION_S     = 60U;
+
         static constexpr std::size_t LUMINOSITY_PERIOD_MIN  = 2U;
+        static constexpr std::size_t HUMIDITY_PERIOD_MIN    = 2U;
+        static constexpr std::size_t DUST_PERIOD_MIN        = 4U;
+        static constexpr std::size_t SMOKE_PERIOD_MIN       = 2U;
 
     public:
         struct Config
@@ -66,7 +70,7 @@ class NodeB01
         State getState (int64_t timeMS);
 
     public:
-        std::size_t processLuminosity (Luminosity data);
+        void processLuminosity (Luminosity data);
         void processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS);
         void processFrontMovement (int64_t timeMS);
         void processHumidity (PeriodicHumiditySensorData data);
@@ -78,6 +82,14 @@ class NodeB01
         bool getDarkness () const noexcept;
         void setConfig (Config config);
         Config getConfig () const;
+
+    public:
+        PeriodicHumiditySensorData getHumidityData () const noexcept;
+        PeriodicDustSensorData getDustData () const noexcept;
+        PeriodicSmokeSensorData getSmokeData () const noexcept;
+        PeriodicHumiditySensorData getHumidityDataT01 () const noexcept;
+        PeriodicDoorSensorData getDoorDataT01 () const noexcept;
+        PeriodicHumiditySensorData getHumidityDataB02 () const noexcept;
 
     private:
         void updateTime (int64_t timeMS);

@@ -36,9 +36,7 @@ PeriodicDustSensor::~PeriodicDustSensor () = default;
 
 void PeriodicDustSensor::launch ()
 {
-    BOOST_LOG_TRIVIAL(debug) << "Dust sensor: initial warm up";
-
-    this->data.isValid = false;
+    BOOST_LOG_TRIVIAL(info) << "Dust sensor: initial warm up";
 
     this->sensor->disableModuleForce();
     this->powerGpio->setHigh();
@@ -50,15 +48,10 @@ void PeriodicDustSensor::launch ()
     return;
 }
 
-PeriodicDustSensorData PeriodicDustSensor::getData () const noexcept
-{
-    return this->data;
-}
-
 
 void PeriodicDustSensor::enablePower ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Dust sensor: power on";
+    BOOST_LOG_TRIVIAL(info) << "Dust sensor: power on";
 
     this->powerGpio->setHigh();
 
@@ -73,7 +66,7 @@ void PeriodicDustSensor::enableModule ([[maybe_unused]] const boost::system::err
 {
     bool isModuleLoaded = true;
 
-    BOOST_LOG_TRIVIAL(debug) << "Dust sensor: enable module";
+    BOOST_LOG_TRIVIAL(info) << "Dust sensor: enable module";
 
     try
     {
@@ -81,7 +74,7 @@ void PeriodicDustSensor::enableModule ([[maybe_unused]] const boost::system::err
     }
     catch (const std::exception &excp)
     {
-        BOOST_LOG_TRIVIAL(debug) << "Dust sensor: module error = " << excp.what();
+        BOOST_LOG_TRIVIAL(info) << "Dust sensor: module error = " << excp.what();
 
         isModuleLoaded = false;
     }
@@ -94,8 +87,6 @@ void PeriodicDustSensor::enableModule ([[maybe_unused]] const boost::system::err
     }
     else
     {
-        this->data.isValid = false;
- 
         auto asyncCallback = boost::bind(&PeriodicDustSensor::disable, this, boost::asio::placeholders::error);
         this->timer.expires_from_now(boost::posix_time::seconds(0));
         this->timer.async_wait(asyncCallback);
@@ -106,29 +97,35 @@ void PeriodicDustSensor::enableModule ([[maybe_unused]] const boost::system::err
 
 void PeriodicDustSensor::readData ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Dust sensor: read data";
+    BOOST_LOG_TRIVIAL(info) << "Dust sensor: read data";
 
-    this->data.isValid = false;
+    PeriodicDustSensorData data;
+    data.isValid = false;
 
     try
     {
-        const auto data = this->sensor->readData();
+        const auto newData = this->sensor->readData();
 
-        this->data.pm10     = data.pm10;
-        this->data.pm2p5    = data.pm2p5;
-        this->data.pm1      = data.pm1;
-        this->data.isValid  = true;
+        data.pm10     = newData.pm10;
+        data.pm2p5    = newData.pm2p5;
+        data.pm1      = newData.pm1;
+        data.isValid  = true;
     }
     catch (const std::exception &excp)
     {
-        BOOST_LOG_TRIVIAL(debug) << "Dust sensor: read error = " << excp.what();
+        BOOST_LOG_TRIVIAL(error) << "Dust sensor: read error = " << excp.what();
     }
 
-    if (this->data.isValid == true)
+    if (data.isValid == true)
     {
-        BOOST_LOG_TRIVIAL(debug) << "Dust sensor: PM10 = " << this->data.pm10;
-        BOOST_LOG_TRIVIAL(debug) << "Dust sensor: PM2.5 = " << this->data.pm2p5;
-        BOOST_LOG_TRIVIAL(debug) << "Dust sensor: PM1 = " << this->data.pm1;
+        BOOST_LOG_TRIVIAL(info) << "Dust sensor: PM10 = " << data.pm10;
+        BOOST_LOG_TRIVIAL(info) << "Dust sensor: PM2.5 = " << data.pm2p5;
+        BOOST_LOG_TRIVIAL(info) << "Dust sensor: PM1 = " << data.pm1;
+    }
+
+    if (this->config.processCallback != nullptr)
+    {
+        this->config.processCallback(data);
     }
 
     auto asyncCallback = boost::bind(&PeriodicDustSensor::disable, this, boost::asio::placeholders::error);
@@ -140,16 +137,16 @@ void PeriodicDustSensor::readData ([[maybe_unused]] const boost::system::error_c
 
 void PeriodicDustSensor::disable ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Dust sensor: disable module";
+    BOOST_LOG_TRIVIAL(info) << "Dust sensor: disable module";
 
     this->sensor->disableModuleForce();
 
-    BOOST_LOG_TRIVIAL(debug) << "Dust sensor: power off";
+    BOOST_LOG_TRIVIAL(info) << "Dust sensor: power off";
 
     this->powerGpio->setLow();
 
     auto asyncCallback = boost::bind(&PeriodicDustSensor::enablePower, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(this->config.sleepTimeS));
+    this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
     this->timer.async_wait(asyncCallback);
 
     return;

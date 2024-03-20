@@ -7,10 +7,8 @@
 #define CLIENT_HPP
 
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/io_service.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/move/unique_ptr.hpp>
-#include <boost/thread/thread.hpp>
 #include <boost/function.hpp>
 
 namespace TCP
@@ -22,13 +20,13 @@ namespace TCP
         public:
             struct Config
             {
-                std::string ipAddress;
+                std::string ip;
                 std::size_t port;
                 boost::function<void(int,std::string)> processMessageCallback;
             };
             
         public:
-            explicit Client (Config config);
+            explicit Client (Config config, boost::asio::io_context &context);
             Client (const Client&) = delete;
             Client& operator= (const Client&) = delete;
             Client (Client&&) = delete;
@@ -47,14 +45,14 @@ namespace TCP
             void receiveMessage (int descriptor, std::string message);
 
             void processError (int descriptor);
-            void onTimerConnect (const boost::system::error_code &errorCode);
+            void onTimerConnect (const boost::system::error_code &error);
+
+        private:
+            boost::asio::io_context &ioContext;
 
         private:
             boost::movelib::unique_ptr<Connection> connection;
-            boost::asio::io_service ioService;
-            boost::movelib::unique_ptr<boost::asio::io_service::work> ioServiceWork;
-            boost::movelib::unique_ptr<boost::thread> thread;
-            boost::asio::deadline_timer connectionTimer;
+            boost::asio::deadline_timer timer;
             const boost::asio::ip::tcp::endpoint endPoint;
 
             Config config;
