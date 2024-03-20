@@ -52,9 +52,10 @@ int main (int argc, char *argv[])
 
     TCP::Client::Config config;
     config.ip = "127.0.0.1";
-    config.port = 4444;
+    config.port = 4445;
     config.processMessageCallback = receiveMessage;
-    TCP::Client client { config, io_context };
+    TCP::Client client { io_context };
+    client.start(config);
 
     io_context.run();
 

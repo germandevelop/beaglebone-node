@@ -41,16 +41,15 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-#set(THREADS_PREFER_PTHREAD_FLAG ON)
-#find_package(Threads REQUIRED)
-
-set(Boost_USE_STATIC_LIBS       OFF)
-set(Boost_USE_MULTITHREADED     ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-set(Boost_USE_DEBUG_LIBS        OFF)
-set(Boost_USE_RELEASE_LIBS      ON)
-find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
+
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
+set(Boost_USE_DEBUG_LIBS OFF)
+set(Boost_USE_RELEASE_LIBS ON)
+find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup)
 
 if(BUILD_TESTS)
 else()
@@ -138,10 +137,10 @@ target_include_directories(bb_server_software
 )
 target_sources(bb_server_software
     PRIVATE
-        src/TCP/Acceptor.hpp
-        src/TCP/Acceptor.cpp
-        src/TCP/Server.hpp
-        src/TCP/Server.cpp
+        #src/TCP/Acceptor.hpp
+        #src/TCP/Acceptor.cpp
+        #src/TCP/Server.hpp
+        #src/TCP/Server.cpp
         src/TCP/Client.hpp
         src/TCP/Client.cpp
 )

@@ -17,11 +17,16 @@ namespace TCP
     {
         public:
             using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
-            using MessageCallback = boost::function<void(int,std::string)>;
-            using ErrorCallback = boost::function<void(int)>;
 
         public:
-            explicit Connection (Socket socket, MessageCallback processMessageCallback, ErrorCallback processErrorCallback);
+            struct Config
+            {
+                boost::function<void(int,std::string)> processMessageCallback;
+                boost::function<void(int)> processErrorCallback;
+            };
+
+        public:
+            explicit Connection (Config config, Socket socket);
             Connection (const Connection&) = delete;
             Connection& operator= (const Connection&) = delete;
             Connection (Connection&&) = delete;
@@ -34,24 +39,21 @@ namespace TCP
             void stop ();
             bool isOpen () const;
 
+        public:
             void sendMessage (std::string message);
 
         private:
+            void onSocketConnect (const boost::system::error_code &error);
             void onMessageReceived (const boost::system::error_code &error, std::size_t bytesTransferred);
             void onMessageSent (const boost::system::error_code &error, std::size_t bytesTransferred);
-            void onSocketConnect (const boost::system::error_code &error);
             void onSocketError (const boost::system::error_code &error);
 
-            void waitInputMessage ();
-            void waitSocketError ();
-            void waitSocketConnect (boost::asio::ip::tcp::endpoint endPoint);
+        private:
+            Config config;
 
         private:
             Socket socket;
             boost::asio::streambuf readBuffer;
-
-            MessageCallback processMessageCallback;
-            ErrorCallback processErrorCallback;
     };
 }
 

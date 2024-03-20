@@ -5,7 +5,6 @@
 
 #include "TCP/Client.hpp"
 
-#include <boost/asio/error.hpp>
 #include <boost/move/make_unique.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -16,34 +15,40 @@
 using namespace TCP;
 
 
-Client::Client (Client::Config config, boost::asio::io_context &context)
+Client::Client (boost::asio::io_context &context)
 :
     ioContext { context },
-    timer { context },
-    endPoint(boost::asio::ip::address::from_string(config.ip), config.port)
+    timer { context }
 {
-    this->config = std::move(config);
- 
     return;
 }
 
 Client::~Client () = default;
 
 
-void Client::start ()
+void Client::start (Client::Config config)
 {
-    Client::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
+    this->config = config;
 
-    auto messageCallback = boost::bind(&Client::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
-    auto errorCallback = boost::bind(&Client::processError, this, boost::placeholders::_1);
-    this->connection = boost::movelib::make_unique<Connection>(boost::move(socket), messageCallback, errorCallback);
-    this->connection->connect(this->endPoint);
+    Connection::Config connConfig;
+    connConfig.processMessageCallback   = boost::bind(&Client::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
+    connConfig.processErrorCallback     = boost::bind(&Client::processError, this, boost::placeholders::_1);
+
+    Connection::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
+
+    this->connection = boost::movelib::make_unique<Connection>(connConfig, boost::move(socket));
+
+    auto asyncCallback = boost::bind(&Client::connect, this, boost::asio::placeholders::error);
+    this->timer.expires_from_now(boost::posix_time::seconds(0));
+    this->timer.async_wait(asyncCallback);
 
     return;
 }
 
 void Client::stop ()
 {
+    this->timer.cancel();
+
     this->connection->stop();
 
     return;
@@ -67,19 +72,24 @@ void Client::receiveMessage (int descriptor, std::string message)
 
 void Client::processError ([[maybe_unused]] int descriptor)
 {
-    auto asyncCallback = boost::bind(&Client::onTimerConnect, this, boost::asio::placeholders::error);
+    constexpr long int timeoutS = 10;
 
-    this->timer.expires_from_now(boost::posix_time::seconds(10));
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : reconnecting after " << timeoutS << " seconds";
+
+    auto asyncCallback = boost::bind(&Client::connect, this, boost::asio::placeholders::error);
+    this->timer.expires_from_now(boost::posix_time::seconds(timeoutS));
     this->timer.async_wait(asyncCallback);
 
     return;
 }
 
-void Client::onTimerConnect ([[maybe_unused]] const boost::system::error_code &error)
+void Client::connect ([[maybe_unused]] const boost::system::error_code &error)
 {
-    BOOST_LOG_TRIVIAL(info) << "Client : try to reconnect";
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : connecting";
 
-    this->connection->connect(this->endPoint);
+    boost::asio::ip::tcp::endpoint endPoint { boost::asio::ip::address::from_string(this->config.ip), this->config.port };
+
+    this->connection->connect(boost::move(endPoint));
 
     return;
 }
