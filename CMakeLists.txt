@@ -137,10 +137,10 @@ target_include_directories(bb_server_software
 )
 target_sources(bb_server_software
     PRIVATE
-        #src/TCP/Acceptor.hpp
-        #src/TCP/Acceptor.cpp
-        #src/TCP/Server.hpp
-        #src/TCP/Server.cpp
+        src/TCP/Acceptor.hpp
+        src/TCP/Acceptor.cpp
+        src/TCP/Server.hpp
+        src/TCP/Server.cpp
         src/TCP/Client.hpp
         src/TCP/Client.cpp
 )

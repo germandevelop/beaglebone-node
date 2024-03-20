@@ -16,6 +16,9 @@ namespace TCP
     class Connection
     {
         public:
+            static constexpr char msgDelimiter = '\n';
+
+        public:
             using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
 
         public:
@@ -46,7 +49,6 @@ namespace TCP
             void onSocketConnect (const boost::system::error_code &error);
             void onMessageReceived (const boost::system::error_code &error, std::size_t bytesTransferred);
             void onMessageSent (const boost::system::error_code &error, std::size_t bytesTransferred);
-            void onSocketError (const boost::system::error_code &error);
 
         private:
             Config config;

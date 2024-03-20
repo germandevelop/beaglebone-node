@@ -5,36 +5,42 @@
 
 #include "TCP/Acceptor.hpp"
 
-#include <boost/asio/error.hpp>
 #include <boost/move/make_unique.hpp>
 #include <boost/bind/bind.hpp>
+#include <boost/asio/placeholders.hpp>
 #include <boost/range.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "TCP/Connection.hpp"
 
+
 using namespace TCP;
 
 
-Acceptor::Acceptor (Acceptor::Config config, boost::asio::io_service &ioService)
+Acceptor::Acceptor (Acceptor::Config config, boost::asio::io_context &context)
 :
-    ioService { ioService },
-    errorTimer { ioService },
-    acceptor { ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::any(), config.port) }
+    ioContext { context },
+    timer { context },
+    acceptor { context, boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::any(), config.port) }
 {
-    assert(config.processMessageCallback != nullptr);
+    this->config = config;
 
-    this->config = std::move(config);
+    this->start();
 
     return;
 }
 
-Acceptor::~Acceptor () = default;
+Acceptor::~Acceptor ()
+{
+    this->stop();
+
+    return;
+}
 
 
 void Acceptor::start ()
 {
-    BOOST_LOG_TRIVIAL(debug) << "Acceptor : start()";
+    BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : start";
 
     {
         boost::unique_lock writeMutex { this->connectionMutex };
@@ -49,24 +55,9 @@ void Acceptor::start ()
     return;
 }
 
-void Acceptor::waitAcceptance ()
-{
-    Acceptor::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioService);
-    auto socketTemp = socket.get();
-
-    auto asyncCallback =    [this, newSocket = boost::move(socket)] (const boost::system::error_code &errorCode) mutable
-                            {
-                                this->onAccept(errorCode, boost::move(newSocket));
-                            };
-
-    this->acceptor.async_accept(*socketTemp, boost::move(asyncCallback));
-
-    return;
-}
-
 void Acceptor::stop ()
 {
-    BOOST_LOG_TRIVIAL(debug) << "Acceptor : stop()";
+    BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : stop";
 
     this->acceptor.close();
 
@@ -78,6 +69,7 @@ void Acceptor::stop ()
             itrConnection->second->stop();
         }
     }
+    
     return;
 }
 
@@ -89,6 +81,7 @@ void Acceptor::sendMessageToAll (std::string message)
     {
         itrConnection->second->sendMessage(message);
     }
+
     return;
 }
 
@@ -99,27 +92,39 @@ void Acceptor::receiveMessage (int descriptor, std::string message)
     return;
 }
 
-
-void Acceptor::onAccept (const boost::system::error_code &errorCode, Acceptor::Socket newSocket)
+void Acceptor::waitAcceptance ()
 {
-    if (errorCode != boost::system::errc::success)
+    auto socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
+    auto socketTemp = socket.get();
+
+    auto asyncCallback =    [this, newSocket = boost::move(socket)] (const boost::system::error_code &error) mutable
+                            {
+                                this->onAccept(boost::move(newSocket), error);
+                            };
+
+    this->acceptor.async_accept(*socketTemp, boost::move(asyncCallback));
+
+    return;
+}
+
+void Acceptor::onAccept (Acceptor::Socket socket, const boost::system::error_code &error)
+{
+    if (error != boost::system::errc::success)
     {
-        BOOST_LOG_TRIVIAL(debug)    << "Acceptor : Acceptance error code = " << errorCode.value()
-                                    << " text - " << errorCode.message();
-        return;
+        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance error = (" << error.value() << ") " << error.message();
     }
-
-    BOOST_LOG_TRIVIAL(debug) << "Acceptor : connection count = " << this->connectionArray.size();
-
-    // Register new connection
-    if (errorCode == boost::system::errc::success)
+    else
     {
-        // Add new accepted connection to the array of connections
-        const int descriptor = static_cast<int>(newSocket->native_handle());
+        const auto descriptor = socket->native_handle();
 
-        auto messageCallback    = boost::bind(&Acceptor::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
-        auto errorCallback      = boost::bind(&Acceptor::processError, this, boost::placeholders::_1);
-        auto connection         = boost::movelib::make_unique<Connection>(boost::move(newSocket), messageCallback, errorCallback);
+        Connection::Config config;
+        config.processMessageCallback   = boost::bind(&Acceptor::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
+        config.processErrorCallback     = boost::bind(&Acceptor::processError, this, boost::placeholders::_1);
+
+        auto connection = boost::movelib::make_unique<Connection>(config, boost::move(socket));
+
+        decltype(this->connectionArray.size()) count;
 
         {
             boost::unique_lock writeMutex { this->connectionMutex };
@@ -131,38 +136,42 @@ void Acceptor::onAccept (const boost::system::error_code &errorCode, Acceptor::S
             {
                 itrConnection->second->start();
             }
+
+            count = this->connectionArray.size();
         }
 
-        BOOST_LOG_TRIVIAL(debug) << "Acceptor : connection count = " << this->connectionArray.size();
-
-        // Wait for new connections
-        this->waitAcceptance();
+        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance success";
+        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : connection count = " << count;
     }
+
+    this->waitAcceptance();
+
     return;
 }
 
 void Acceptor::processError ([[maybe_unused]] int descriptor)
 {
-    BOOST_LOG_TRIVIAL(debug) << "Acceptor : connection count = " << this->connectionArray.size();
+    constexpr long int timeoutS = 1;
 
-    auto asyncCallback = boost::bind(&Acceptor::onTimerError, this, boost::placeholders::_1);
+    BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : clearing after " << timeoutS << " seconds";
 
-    this->errorTimer.expires_from_now(boost::posix_time::seconds(1));
-    this->errorTimer.async_wait(asyncCallback);
+    auto asyncCallback = boost::bind(&Acceptor::clear, this, boost::asio::placeholders::error);
+    this->timer.expires_from_now(boost::posix_time::seconds(timeoutS));
+    this->timer.async_wait(asyncCallback);
 
     return;
 }
 
-void Acceptor::onTimerError ([[maybe_unused]] const boost::system::error_code &errorCode)
+void Acceptor::clear ([[maybe_unused]] const boost::system::error_code &error)
 {
-    this->tryToRemoveClosedConnections();
+    BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : clearing";
 
-    BOOST_LOG_TRIVIAL(debug) << "Acceptor : timer connection count = " << this->connectionArray.size();
+    this->clear();
 
     return;
 }
 
-void Acceptor::tryToRemoveClosedConnections ()
+void Acceptor::clear ()
 {
     boost::upgrade_lock upgradeMutex { this->connectionMutex };
 
@@ -179,5 +188,6 @@ void Acceptor::tryToRemoveClosedConnections ()
             ++itrConnection;
         }
     }
+
     return;
 }

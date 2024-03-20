@@ -12,6 +12,7 @@
 
 #include "TCP/Connection.hpp"
 
+
 using namespace TCP;
 
 
@@ -50,12 +51,15 @@ void Client::stop ()
     this->timer.cancel();
 
     this->connection->stop();
+    this->connection.reset();
 
     return;
 }
 
 void Client::sendMessage (std::string message)
 {
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : send message = " << message;
+
     this->connection->sendMessage(std::move(message));
 
     return;
@@ -63,6 +67,8 @@ void Client::sendMessage (std::string message)
 
 void Client::receiveMessage (int descriptor, std::string message)
 {
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : receive message = " << message;
+
     if (this->config.processMessageCallback != nullptr)
     {
         this->config.processMessageCallback(descriptor, std::move(message));

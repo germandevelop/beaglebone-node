@@ -6,9 +6,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <boost/asio/io_service.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/container/vector.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/move/unique_ptr.hpp>
 #include <boost/function.hpp>
 
@@ -21,13 +19,12 @@ namespace TCP
         public:
             struct Config
             {
-                std::size_t port;
-                std::size_t threadPoolSize;
+                unsigned short int port;
                 boost::function<void(int,std::string)> processMessageCallback;
             };
 
         public:
-            explicit Server (Config config);
+            explicit Server (boost::asio::io_context &context);
             Server (const Server&) = delete;
             Server& operator= (const Server&) = delete;
             Server (Server&&) = delete;
@@ -35,7 +32,7 @@ namespace TCP
             ~Server ();
 
         public:
-            void start ();
+            void start (Config config);
             void stop ();
 
             void sendMessageToAll (std::string message);
@@ -44,12 +41,13 @@ namespace TCP
             void receiveMessage (int descriptor, std::string message);
 
         private:
-            boost::movelib::unique_ptr<Acceptor> acceptor;
-            boost::asio::io_service ioService;
-            boost::movelib::unique_ptr<boost::asio::io_service::work> ioServiceWork;
-            boost::movelib::unique_ptr<boost::thread_group> threads;
-
             Config config;
+
+        private:
+            boost::asio::io_context &ioContext;
+
+        private:
+            boost::movelib::unique_ptr<Acceptor> acceptor;
     };
 }
 

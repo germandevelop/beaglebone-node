@@ -6,14 +6,12 @@
 #ifndef ACCEPTOR_HPP
 #define ACCEPTOR_HPP
 
-#include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/container/map.hpp>
 #include <boost/move/unique_ptr.hpp>
-#include <boost/asio/deadline_timer.hpp>
 #include <boost/function.hpp>
-
 
 namespace TCP
 {
@@ -24,12 +22,12 @@ namespace TCP
         public:
             struct Config
             {
-                std::size_t port;
+                unsigned short int port;
                 boost::function<void(int,std::string)> processMessageCallback;
             };
 
         public:
-            explicit Acceptor (Config config, boost::asio::io_service &ioService);
+            explicit Acceptor (Config config, boost::asio::io_context &context);
             Acceptor (const Acceptor&) = delete;
             Acceptor& operator= (const Acceptor&) = delete;
             Acceptor (Acceptor&&) = delete;
@@ -37,32 +35,37 @@ namespace TCP
             ~Acceptor ();
 
         public:
-            void start ();
-            void stop ();
-
             void sendMessageToAll (std::string message);
 
         private:
             using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
+            using ConnectionContainer = boost::container::map<boost::asio::ip::tcp::socket::native_handle_type, boost::movelib::unique_ptr<Connection>>;
 
         private:
-            void onAccept (const boost::system::error_code &errorCode, Socket newSocket);
-            void onTimerError (const boost::system::error_code &errorCode);
+            void start ();
+            void stop ();
 
+        private:
             void waitAcceptance ();
-            void tryToRemoveClosedConnections ();
+            void onAccept (Socket socket, const boost::system::error_code &error);
 
             void receiveMessage (int descriptor, std::string message);
             void processError (int descriptor);
 
+            void clear (const boost::system::error_code &error);
+            void clear ();
+
         private:
-            boost::asio::io_service &ioService;
-            boost::asio::deadline_timer errorTimer;
+            Config config;
+
+        private:
+            boost::asio::io_context &ioContext;
+
+        private:
+            boost::asio::deadline_timer timer;
             boost::asio::ip::tcp::acceptor acceptor;
             boost::shared_mutex connectionMutex;
-            boost::container::map<int, boost::movelib::unique_ptr<Connection>> connectionArray;
-
-            Config config;
+            ConnectionContainer connectionArray;
     };
 }
 

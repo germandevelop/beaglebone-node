@@ -39,7 +39,7 @@ void initLogging ()
 
 void receiveMessage (int descriptor, std::string message)
 {
-    BOOST_LOG_TRIVIAL(info) << "Message : " << message;
+    //BOOST_LOG_TRIVIAL(info) << "Message : " << message.size() << " " << message;
 }
 
 
@@ -50,36 +50,20 @@ int main (int argc, char *argv[])
     boost::asio::io_context io_context;
     boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work = boost::asio::make_work_guard(io_context);
 
-    TCP::Client::Config config;
+    /*TCP::Client::Config config;
     config.ip = "127.0.0.1";
     config.port = 4445;
     config.processMessageCallback = receiveMessage;
     TCP::Client client { io_context };
-    client.start(config);
+    client.start(config);*/
+
+    TCP::Server::Config config;
+    config.port = 4445;
+    config.processMessageCallback = receiveMessage;
+    TCP::Server server { io_context };
+    server.start(config);
 
     io_context.run();
-
-
-    /*try
-    {
-        TCP::Server::Config config;
-        config.port                     = 2399U;
-        config.threadPoolSize           = 1U;
-        config.processMessageCallback   = receiveMessage;
-
-        TCP::Server server { config };
-
-        server.start();
-
-        std::this_thread::sleep_for(std::chrono::seconds(120));
-
-        server.stop();
-    }
-    catch (boost::system::system_error &excp)
-    {
-        std::cout << "Main : Error occured! Error code = "
-                  << excp.code() << ". Message: " << excp.what();
-    }*/
 
     return 0;
 }
