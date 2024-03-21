@@ -50,10 +50,10 @@ void Connection::connect (boost::asio::ip::tcp::endpoint endPoint)
     if (this->socket->is_open() != true)
     {
         this->socket->open(boost::asio::ip::tcp::v4());
-    }
 
-    auto asyncCallback = boost::bind(&Connection::onSocketConnect, this, boost::asio::placeholders::error);
-    this->socket->async_connect(endPoint, asyncCallback);
+        auto asyncCallback = boost::bind(&Connection::onSocketConnect, this, boost::asio::placeholders::error);
+        this->socket->async_connect(endPoint, asyncCallback);
+    }
 
     return;
 }
@@ -62,7 +62,7 @@ void Connection::stop ()
 {
     boost::system::error_code error;
     this->socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, error);
-    this->socket->close();
+    this->socket->close(error);
 
     return;
 }

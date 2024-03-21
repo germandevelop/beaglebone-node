@@ -8,35 +8,39 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
+#include <boost/move/unique_ptr.hpp>
 #include <boost/array.hpp>
 
 #include "Node.Type.hpp"
 #include "node/node.list.h"
 
+namespace TCP
+{
+    class Server;
+}
 
 class NodeServer
 {
     public:
-        struct Config
-        {
-
-        };
-
-    public:
-        explicit NodeServer (Config config, boost::asio::io_context &context);
+        explicit NodeServer (boost::asio::io_context &context);
         NodeServer (const NodeServer&) = delete;
         NodeServer& operator= (const NodeServer&) = delete;
         NodeServer (NodeServer&&) = delete;
         NodeServer& operator= (NodeServer&&) = delete;
         ~NodeServer ();
 
+    public:
+        void start ();
+
     private:
-        Config config;
+        void receiveMessage (std::string message);
+        void redirectMessage (std::string message);
 
     private:
         boost::asio::io_context &ioContext;
 
     private:
+        boost::movelib::unique_ptr<TCP::Server> server;
         boost::array<boost::asio::ip::address, NODE_LIST_SIZE> nodeTable;
 };
 

@@ -32,8 +32,8 @@ void Client::start (Client::Config config)
     this->config = config;
 
     Connection::Config connConfig;
-    connConfig.processMessageCallback   = boost::bind(&Client::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
-    connConfig.processErrorCallback     = boost::bind(&Client::processError, this, boost::placeholders::_1);
+    connConfig.processMessageCallback   = boost::bind(&Client::receiveMessage, this, boost::placeholders::_1);
+    connConfig.processErrorCallback     = boost::bind(&Client::processError, this);
 
     Connection::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
 
@@ -65,18 +65,18 @@ void Client::sendMessage (std::string message)
     return;
 }
 
-void Client::receiveMessage (int descriptor, std::string message)
+void Client::receiveMessage (std::string message)
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Client : receive message = " << message;
 
     if (this->config.processMessageCallback != nullptr)
     {
-        this->config.processMessageCallback(descriptor, std::move(message));
+        this->config.processMessageCallback(std::move(message));
     }
     return;
 }
 
-void Client::processError ([[maybe_unused]] int descriptor)
+void Client::processError ()
 {
     constexpr long int timeoutS = 10;
 

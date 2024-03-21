@@ -23,7 +23,6 @@ endif()
 include(FetchContent)
 
 if(BUILD_TESTS)
-    enable_language(CXX)
     enable_testing()
     add_subdirectory(tests)
 endif()
@@ -69,6 +68,7 @@ add_library(bb_config INTERFACE)
 target_compile_features(bb_config
     INTERFACE
         cxx_std_20
+        c_std_17
 )
 target_compile_definitions(bb_config
     INTERFACE
@@ -107,8 +107,6 @@ add_library(bb_common INTERFACE)
 target_sources(bb_common
     INTERFACE
         src/Node.Type.hpp
-        src/Node.hpp
-        src/Node.cpp
         src/Node.Mapper.hpp
         src/Node.Mapper.cpp
         src/Serializer.Type.hpp
@@ -139,8 +137,6 @@ target_sources(bb_server_software
     PRIVATE
         src/server/Node.Server.hpp
         src/server/Node.Server.cpp
-        src/TCP/ConcurrentAcceptor.hpp
-        src/TCP/ConcurrentAcceptor.cpp
         src/TCP/Acceptor.hpp
         src/TCP/Acceptor.cpp
         src/TCP/Server.hpp
@@ -150,6 +146,8 @@ set_target_properties(bb_server_software
     PROPERTIES
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
+        C_STANDARD_REQUIRED ON
+        C_EXTENSIONS OFF
 )
 
 
@@ -162,6 +160,8 @@ target_link_libraries(bb_client_software PRIVATE std_error)
 target_link_libraries(bb_client_software PRIVATE vs1838_control)
 target_sources(bb_client_software
     PRIVATE
+        src/Node.hpp
+        src/Node.cpp
         src/Board.hpp
         src/Board.cpp
         src/PhotoResistor.hpp
@@ -236,10 +236,6 @@ target_link_libraries(bb_client_software
         ${Glibmm_LIBRARIES}
         ${Glib_LIBRARIES}
         ${Alsa_LIBRARIES}
-)
-target_compile_features(bb_client_software
-    PRIVATE
-        c_std_17
 )
 set_target_properties(bb_client_software
     PROPERTIES

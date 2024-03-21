@@ -7,6 +7,8 @@
 
 
 NodeB01::NodeB01 (NodeB01::Config config)
+:
+    id { NODE_B01 }
 {
     this->setConfig(config);
 
@@ -455,6 +457,11 @@ void NodeB01::processMessage (const NodeMsg &inMsg, int64_t timeMS)
     constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
     constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
 
+    if (inMsg.header.destArray.contains(this->id) != true)
+    {
+        return;
+    }
+    
     this->updateTime(timeMS);
 
     if (inMsg.cmdID == SET_INTRUSION)

@@ -96,6 +96,7 @@ class NodeB01
 
     private:
         Config config;
+        const node_id_t id;
 
     private:
         node_mode_id_t mode;

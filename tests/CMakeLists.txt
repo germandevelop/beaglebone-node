@@ -25,11 +25,14 @@ set_target_properties(tests
     PROPERTIES
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
+        C_STANDARD_REQUIRED ON
+        C_EXTENSIONS OFF
 )
 target_link_libraries(tests
     PRIVATE
         GTest::gmock
         GTest::gmock_main
+        bb_config
         bb_testing
 )
 

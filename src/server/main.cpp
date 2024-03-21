@@ -39,7 +39,6 @@ void receiveMessage (std::string message)
     //BOOST_LOG_TRIVIAL(info) << "Message : " << message.size() << " " << message;
 }
 
-#include "TCP/Server.hpp"
 #include "server/Node.Server.hpp"
 //#include "TCP/Client.hpp"
 
@@ -57,13 +56,8 @@ int main (int argc, char *argv[])
     TCP::Client client { io_context };
     client.start(config);*/
 
-    NodeServer nodeServer { {}, io_context };
-
-    TCP::Server::Config config;
-    config.port = 4445;
-    config.processMessageCallback = receiveMessage;
-    TCP::Server server { io_context };
-    server.start(config);
+    NodeServer nodeServer { io_context };
+    nodeServer.start();
 
     io_context.run();
 

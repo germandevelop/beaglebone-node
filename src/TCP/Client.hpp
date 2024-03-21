@@ -21,7 +21,7 @@ namespace TCP
             {
                 std::string ip;
                 unsigned short int port;
-                boost::function<void(int,std::string)> processMessageCallback;
+                boost::function<void(std::string)> processMessageCallback;
             };
             
         public:
@@ -40,9 +40,9 @@ namespace TCP
             void sendMessage (std::string message);
 
         private:
-            void receiveMessage (int descriptor, std::string message);
+            void receiveMessage (std::string message);
 
-            void processError (int descriptor);
+            void processError ();
             void connect (const boost::system::error_code &error);
 
         private:

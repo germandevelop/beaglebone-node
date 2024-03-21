@@ -40,14 +40,24 @@ void Node::addMessage (NodeMsg message)
 
 void Node::processRawMessage (std::string message)
 {
-    NodeMsg nodeMsg = deserializeMessage(message);
+    NodeMsg nodeMsg;
 
-    if (nodeMsg.header.destArray.contains(this->config.id) == true)
+    try
     {
-        if (this->config.processMessageCallback != nullptr)
-        {
-            this->config.processMessageCallback(std::move(nodeMsg));
-        }
+        nodeMsg = deserializeMessage(message);
+    }
+    catch (const boost::exception &exp)
+    {
+        return;
+    }
+    catch (const std::exception &exp)
+    {
+        return;
+    }
+
+    if (this->config.processMessageCallback != nullptr)
+    {
+        this->config.processMessageCallback(std::move(nodeMsg));
     }
 
     return;
