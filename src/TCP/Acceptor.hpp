@@ -8,8 +8,8 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/container/map.hpp>
+#include <boost/container/vector.hpp>
 #include <boost/move/unique_ptr.hpp>
 #include <boost/function.hpp>
 
@@ -23,7 +23,7 @@ namespace TCP
             struct Config
             {
                 unsigned short int port;
-                boost::function<void(int,std::string)> processMessageCallback;
+                boost::function<void(std::string)> processMessageCallback;
             };
 
         public:
@@ -32,14 +32,24 @@ namespace TCP
             Acceptor& operator= (const Acceptor&) = delete;
             Acceptor (Acceptor&&) = delete;
             Acceptor& operator= (Acceptor&&) = delete;
-            ~Acceptor ();
+            virtual ~Acceptor ();
 
         public:
             void sendMessageToAll (std::string message);
+            void sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message);
+
+        protected:
+            virtual std::size_t startConnection (boost::movelib::unique_ptr<Connection> connection);
+            virtual void stopConnections ();
+            virtual void sendToAllConnections (std::string message);
+            virtual void sendToConnection (const boost::asio::ip::address &ip, std::string message);
+            virtual std::size_t clearStoppedConnections ();
+            virtual void clearConnections ();
 
         private:
             using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
-            using ConnectionContainer = boost::container::map<boost::asio::ip::tcp::socket::native_handle_type, boost::movelib::unique_ptr<Connection>>;
+            using Descriptor = boost::asio::ip::tcp::socket::native_handle_type;
+            using ConnectionContainer = boost::container::map<Descriptor, boost::movelib::unique_ptr<Connection>>;
 
         private:
             void start ();
@@ -49,11 +59,10 @@ namespace TCP
             void waitAcceptance ();
             void onAccept (Socket socket, const boost::system::error_code &error);
 
-            void receiveMessage (int descriptor, std::string message);
-            void processError (int descriptor);
-
+            void receiveMessage (std::string message);
+            void sendMessageIP (boost::asio::ip::address ip, std::string message);
+            void processError ();
             void clear (const boost::system::error_code &error);
-            void clear ();
 
         private:
             Config config;
@@ -64,7 +73,6 @@ namespace TCP
         private:
             boost::asio::deadline_timer timer;
             boost::asio::ip::tcp::acceptor acceptor;
-            boost::shared_mutex connectionMutex;
             ConnectionContainer connectionArray;
     };
 }

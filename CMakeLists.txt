@@ -137,12 +137,14 @@ target_include_directories(bb_server_software
 )
 target_sources(bb_server_software
     PRIVATE
+        src/server/Node.Server.hpp
+        src/server/Node.Server.cpp
+        src/TCP/ConcurrentAcceptor.hpp
+        src/TCP/ConcurrentAcceptor.cpp
         src/TCP/Acceptor.hpp
         src/TCP/Acceptor.cpp
         src/TCP/Server.hpp
         src/TCP/Server.cpp
-        src/TCP/Client.hpp
-        src/TCP/Client.cpp
 )
 set_target_properties(bb_server_software
     PROPERTIES

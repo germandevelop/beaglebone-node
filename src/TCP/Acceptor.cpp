@@ -42,11 +42,7 @@ void Acceptor::start ()
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : start";
 
-    {
-        boost::unique_lock writeMutex { this->connectionMutex };
-
-        this->connectionArray.clear();
-    }
+    this->clearConnections();
 
     this->acceptor.listen();
 
@@ -61,33 +57,39 @@ void Acceptor::stop ()
 
     this->acceptor.close();
 
-    {
-        boost::shared_lock readMutex { this->connectionMutex };
-
-        for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
-        {
-            itrConnection->second->stop();
-        }
-    }
+    this->stopConnections();
     
     return;
 }
 
 void Acceptor::sendMessageToAll (std::string message)
 {
-    boost::shared_lock readMutex { this->connectionMutex };
+    this->sendToAllConnections(std::move(message));
 
-    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    return;
+}
+
+void Acceptor::sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message)
+{
+    for (auto itrIP = boost::const_begin(destArray); itrIP != boost::const_end(destArray); ++itrIP)
     {
-        itrConnection->second->sendMessage(message);
+        auto asyncCallback = boost::bind(&Acceptor::sendMessageIP, this, *itrIP, message);
+        boost::asio::post(this->ioContext, asyncCallback);
     }
 
     return;
 }
 
-void Acceptor::receiveMessage (int descriptor, std::string message)
+void Acceptor::sendMessageIP (boost::asio::ip::address ip, std::string message)
 {
-    this->config.processMessageCallback(descriptor, std::move(message));
+    this->sendToConnection(ip, std::move(message));
+
+    return;
+}
+
+void Acceptor::receiveMessage (std::string message)
+{
+    this->config.processMessageCallback(std::move(message));
 
     return;
 }
@@ -116,32 +118,16 @@ void Acceptor::onAccept (Acceptor::Socket socket, const boost::system::error_cod
     }
     else
     {
-        const auto descriptor = socket->native_handle();
-
         Connection::Config config;
-        config.processMessageCallback   = boost::bind(&Acceptor::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
-        config.processErrorCallback     = boost::bind(&Acceptor::processError, this, boost::placeholders::_1);
+        config.processMessageCallback   = boost::bind(&Acceptor::receiveMessage, this, boost::placeholders::_1);
+        config.processErrorCallback     = boost::bind(&Acceptor::processError, this);
 
         auto connection = boost::movelib::make_unique<Connection>(config, boost::move(socket));
 
-        decltype(this->connectionArray.size()) count;
-
-        {
-            boost::unique_lock writeMutex { this->connectionMutex };
-
-            auto [itrConnection, isEmplaced] = this->connectionArray.emplace(descriptor, boost::move(connection));
-
-            // Start connection handling
-            if (isEmplaced == true)
-            {
-                itrConnection->second->start();
-            }
-
-            count = this->connectionArray.size();
-        }
+        const std::size_t connectionCount = this->startConnection(boost::move(connection));
 
         BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance success";
-        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : connection count = " << count;
+        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : connection count = " << connectionCount;
     }
 
     this->waitAcceptance();
@@ -149,7 +135,7 @@ void Acceptor::onAccept (Acceptor::Socket socket, const boost::system::error_cod
     return;
 }
 
-void Acceptor::processError ([[maybe_unused]] int descriptor)
+void Acceptor::processError ()
 {
     constexpr long int timeoutS = 1;
 
@@ -166,21 +152,65 @@ void Acceptor::clear ([[maybe_unused]] const boost::system::error_code &error)
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : clearing";
 
-    this->clear();
+    this->clearStoppedConnections();
 
     return;
 }
 
-void Acceptor::clear ()
-{
-    boost::upgrade_lock upgradeMutex { this->connectionMutex };
 
+std::size_t Acceptor::startConnection (boost::movelib::unique_ptr<Connection> connection)
+{
+    const auto descriptor = connection->getDescriptor();
+
+    auto [itrConnection, isEmplaced] = this->connectionArray.emplace(descriptor, boost::move(connection));
+
+    if (isEmplaced == true)
+    {
+        itrConnection->second->start();
+    }
+
+    return this->connectionArray.size();
+}
+
+void Acceptor::stopConnections ()
+{
+    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    {
+        itrConnection->second->stop();
+    }
+
+    return;
+}
+
+void Acceptor::sendToAllConnections (std::string message)
+{
+    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    {
+        itrConnection->second->sendMessage(message);
+    }
+
+    return;
+}
+
+void Acceptor::sendToConnection (const boost::asio::ip::address &ip, std::string message)
+{
+    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    {
+        if (itrConnection->second->getIP() == ip)
+        {
+            itrConnection->second->sendMessage(message);
+        }
+    }
+
+    return;
+}
+
+std::size_t Acceptor::clearStoppedConnections ()
+{
     for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray);)
     {
         if (itrConnection->second->isOpen() != true)
         {
-            boost::upgrade_to_unique_lock writeMutex { upgradeMutex };
-            
             itrConnection = this->connectionArray.erase(itrConnection);
         }
         else
@@ -188,6 +218,13 @@ void Acceptor::clear ()
             ++itrConnection;
         }
     }
+
+    return this->connectionArray.size();
+}
+
+void Acceptor::clearConnections ()
+{
+    this->connectionArray.clear();
 
     return;
 }

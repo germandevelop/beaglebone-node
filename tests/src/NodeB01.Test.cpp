@@ -27,7 +27,7 @@ TEST_F(NodeB01TestFixture, Init)
     expectedState.isAlarmAudio      = false;
 
     // Act: poke the system under test
-    NodeB01::State resultState = node.getState(NodeB01::DISPLAY_DURATION_MS);
+    NodeB01::State resultState = node.getState(NodeB01::DISPLAY_DURATION_S * 1000U);
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
@@ -92,8 +92,8 @@ TEST_P(NodeB01ParamRemoteControlMode, ProcessRemoteButtonMode)
     NodeB01::State expectedState = std::get<2>(GetParam());
 
     // Act: poke the system under test
-    node.processRemoteButton(button, (NodeB01::DISPLAY_DURATION_MS * 2U));
-    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
+    node.processRemoteButton(button, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
@@ -161,7 +161,7 @@ TEST_P(NodeB01ParamRemoteControl, ProcessRemoteButton)
     node.processLuminosity(luminosity);
 
     REMOTE_CONTROL_BUTTON modeButton = std::get<1>(GetParam());
-    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_MS * 2U));
+    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
     node.extractMessages();
 
     REMOTE_CONTROL_BUTTON button = std::get<2>(GetParam());
@@ -169,8 +169,8 @@ TEST_P(NodeB01ParamRemoteControl, ProcessRemoteButton)
     NodeB01::State expectedState = std::get<3>(GetParam());
 
     // Act: poke the system under test
-    node.processRemoteButton(button, ((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
-    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_MS * 2U) + 2U));
+    node.processRemoteButton(button, ((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
@@ -298,7 +298,7 @@ TEST_F(NodeB01TestFixture, ProcessRemoteButtonWarningOff)
     expectedConfig.isWarningEnabled = false;
 
     // Act: poke the system under test
-    node.processRemoteButton(button, ((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
+    node.processRemoteButton(button, ((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
     NodeB01::Config resultConfig = node.getConfig();
 
     // Assert: make unit test pass or fail
@@ -310,14 +310,14 @@ TEST_F(NodeB01TestFixture, ProcessRemoteButtonWarningOn)
     // Arrange: create and set up a system under test
     REMOTE_CONTROL_BUTTON button = REMOTE_CONTROL_BUTTON::ZERO;
 
-    node.processRemoteButton(button, (NodeB01::DISPLAY_DURATION_MS * 2U));
+    node.processRemoteButton(button, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
     node.extractMessages();
 
     NodeB01::Config expectedConfig;
     expectedConfig.isWarningEnabled = true;
 
     // Act: poke the system under test
-    node.processRemoteButton(button, ((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
+    node.processRemoteButton(button, ((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
     NodeB01::Config resultConfig = node.getConfig();
 
     // Assert: make unit test pass or fail
@@ -340,14 +340,14 @@ TEST_P(NodeB01ParamFrontPir, ProcessFrontPir)
     node.processLuminosity(luminosity);
 
     REMOTE_CONTROL_BUTTON modeButton = std::get<1>(GetParam());
-    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_MS * 2U));
+    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
     node.extractMessages();
 
     NodeB01::State expectedState = std::get<2>(GetParam());
 
     // Act: poke the system under test
-    node.processFrontMovement(((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
-    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_MS * 2U) + 2U));
+    node.processFrontMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
@@ -415,7 +415,7 @@ TEST_P(NodeB01ParamSmoke, ProcessSmoke)
     node.processLuminosity(luminosity);
 
     REMOTE_CONTROL_BUTTON modeButton = std::get<1>(GetParam());
-    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_MS * 2U));
+    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
     node.extractMessages();
 
     PeriodicSmokeSensorData data = std::get<2>(GetParam());
@@ -424,7 +424,7 @@ TEST_P(NodeB01ParamSmoke, ProcessSmoke)
 
     // Act: poke the system under test
     node.processSmoke(data);
-    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
@@ -536,7 +536,7 @@ TEST_P(NodeB01ParamMsgCmd, ProcessMsgCmd)
     node.processLuminosity(luminosity);
 
     REMOTE_CONTROL_BUTTON modeButton = std::get<1>(GetParam());
-    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_MS * 2U));
+    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
     node.extractMessages();
 
     NodeMsg msg = std::get<2>(GetParam());
@@ -544,8 +544,8 @@ TEST_P(NodeB01ParamMsgCmd, ProcessMsgCmd)
     NodeB01::State expectedState = std::get<3>(GetParam());
 
     // Act: poke the system under test
-    node.processMessage(msg, ((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
-    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_MS * 2U) + 2U));
+    node.processMessage(msg, ((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
@@ -662,10 +662,10 @@ TEST_P(NodeB01ParamMsgT01, ProcessMsgT01)
     NodeB01::State expectedState = std::get<3>(GetParam());
 
     // Act: poke the system under test
-    node.processMessage(humidityMsg, (NodeB01::DISPLAY_DURATION_MS * 2U));
-    node.processMessage(doorMsg, ((NodeB01::DISPLAY_DURATION_MS * 2U) + 1U));
-    node.processFrontMovement(((NodeB01::DISPLAY_DURATION_MS * 2U) + 2U));
-    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_MS * 2U) + 3U));
+    node.processMessage(humidityMsg, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
+    node.processMessage(doorMsg, ((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
+    node.processFrontMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 3U));
 
     // Assert: make unit test pass or fail
     EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);

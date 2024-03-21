@@ -7,6 +7,8 @@
 #define SERVER_HPP
 
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/container/vector.hpp>
 #include <boost/move/unique_ptr.hpp>
 #include <boost/function.hpp>
 
@@ -20,7 +22,7 @@ namespace TCP
             struct Config
             {
                 unsigned short int port;
-                boost::function<void(int,std::string)> processMessageCallback;
+                boost::function<void(std::string)> processMessageCallback;
             };
 
         public:
@@ -36,9 +38,10 @@ namespace TCP
             void stop ();
 
             void sendMessageToAll (std::string message);
+            void sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message);
 
         private:
-            void receiveMessage (int descriptor, std::string message);
+            void receiveMessage (std::string message);
 
         private:
             Config config;

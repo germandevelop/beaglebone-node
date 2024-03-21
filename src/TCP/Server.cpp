@@ -5,6 +5,7 @@
 
 #include "TCP/Server.hpp"
 
+#include <boost/bind/bind.hpp>
 #include <boost/move/make_unique.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -32,7 +33,7 @@ void Server::start (Server::Config config)
 
     Acceptor::Config acceptorConfig;
     acceptorConfig.port                     = this->config.port;
-    acceptorConfig.processMessageCallback   = boost::bind(&Server::receiveMessage, this, boost::placeholders::_1, boost::placeholders::_2);
+    acceptorConfig.processMessageCallback   = boost::bind(&Server::receiveMessage, this, boost::placeholders::_1);
 
     this->acceptor = boost::movelib::make_unique<Acceptor>(acceptorConfig, this->ioContext);
 
@@ -57,13 +58,22 @@ void Server::sendMessageToAll (std::string message)
     return;
 }
 
-void Server::receiveMessage (int descriptor, std::string message)
+void Server::sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message)
+{
+    BOOST_LOG_TRIVIAL(info) << "TCP Server : send message = " << message;
+
+    this->acceptor->sendMessage(boost::move(destArray), std::move(message));
+
+    return;
+}
+
+void Server::receiveMessage (std::string message)
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Server : receive message = " << message;
 
     if (this->config.processMessageCallback != nullptr)
     {
-        this->config.processMessageCallback(descriptor, std::move(message));
+        this->config.processMessageCallback(std::move(message));
     }
     
     return;

@@ -18,6 +18,9 @@ using namespace TCP;
 
 
 Connection::Connection (Connection::Config config, Socket socket)
+:
+    ip { socket->remote_endpoint().address() },
+    descriptor { socket->native_handle() }
 {
     this->config = config;
 
@@ -69,6 +72,16 @@ bool Connection::isOpen () const
     return this->socket->is_open();
 }
 
+boost::asio::ip::address Connection::getIP () const
+{
+    return this->ip;
+}
+
+Connection::Descriptor Connection::getDescriptor () const
+{
+    return this->descriptor;
+}
+
 void Connection::sendMessage (std::string message)
 {
     message.push_back(Connection::msgDelimiter);
@@ -87,22 +100,20 @@ void Connection::sendMessage (std::string message)
 
 void Connection::onSocketConnect (const boost::system::error_code &error)
 {
-    const auto descriptor = this->socket->native_handle();
-
     if (error != boost::system::errc::success)
     {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor << ") socket connection failure";
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket connection failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
                                  << ") socket error = (" << error.value() << ") " << error.message();
 
         this->stop();
 
-        this->config.processErrorCallback(static_cast<int>(descriptor));
+        this->config.processErrorCallback();
     }
     else
     {
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << descriptor << ") socket connection success";
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << descriptor << ") socket is reading";
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket connection success";
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket is reading";
 
         auto asyncCallback = boost::bind(&Connection::onMessageReceived, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
         boost::asio::async_read_until(*this->socket.get(), this->readBuffer, Connection::msgDelimiter, asyncCallback);
@@ -113,27 +124,25 @@ void Connection::onSocketConnect (const boost::system::error_code &error)
 
 void Connection::onMessageReceived (const boost::system::error_code &error, std::size_t bytesTransferred)
 {
-    const auto descriptor = this->socket->native_handle();
-
     if (error != boost::system::errc::success)
     {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor << ") message receiving failure";
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
                                  << ") error = (" << error.value() << ") " << error.message();
 
         if (error == boost::asio::error::eof)
         {
-            BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor << ") message receiving EOF";
+            BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving EOF";
 
             this->stop();
 
-            this->config.processErrorCallback(static_cast<int>(descriptor));
+            this->config.processErrorCallback();
         }
     }
     else
     {
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << descriptor << ") message receiving success";
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << descriptor << ") bytes transferred = " << bytesTransferred;
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving success";
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") bytes transferred = " << bytesTransferred;
 
         std::ostringstream inputMessage;
         inputMessage << &this->readBuffer;
@@ -141,7 +150,7 @@ void Connection::onMessageReceived (const boost::system::error_code &error, std:
         auto asyncCallback = boost::bind(&Connection::onMessageReceived, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
         boost::asio::async_read_until(*this->socket.get(), this->readBuffer, Connection::msgDelimiter, asyncCallback);
 
-        this->config.processMessageCallback((int)this->socket->native_handle(), inputMessage.str());
+        this->config.processMessageCallback(inputMessage.str());
     }
 
     return;
@@ -149,18 +158,16 @@ void Connection::onMessageReceived (const boost::system::error_code &error, std:
 
 void Connection::onMessageSent (const boost::system::error_code &error, std::size_t bytesTransferred)
 {
-    const auto descriptor = this->socket->native_handle();
-
     if (error != boost::system::errc::success)
     {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor << ") message sending failure";
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message sending failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
                                  << ") error = (" << error.value() << ") " << error.message();
     }
     else
     {
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << descriptor << ") message sending success";
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << descriptor << ") bytes transferred = " << bytesTransferred;
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message sending success";
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") bytes transferred = " << bytesTransferred;
     }
 
     return;

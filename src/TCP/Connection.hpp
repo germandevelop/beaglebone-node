@@ -20,12 +20,13 @@ namespace TCP
 
         public:
             using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
+            using Descriptor = boost::asio::ip::tcp::socket::native_handle_type;
 
         public:
             struct Config
             {
-                boost::function<void(int,std::string)> processMessageCallback;
-                boost::function<void(int)> processErrorCallback;
+                boost::function<void(std::string)> processMessageCallback;
+                boost::function<void()> processErrorCallback;
             };
 
         public:
@@ -41,6 +42,8 @@ namespace TCP
             void connect (boost::asio::ip::tcp::endpoint endPoint);
             void stop ();
             bool isOpen () const;
+            boost::asio::ip::address getIP () const;
+            Descriptor getDescriptor () const;
 
         public:
             void sendMessage (std::string message);
@@ -56,6 +59,8 @@ namespace TCP
         private:
             Socket socket;
             boost::asio::streambuf readBuffer;
+            const boost::asio::ip::address ip;
+            const Descriptor descriptor;
     };
 }
 

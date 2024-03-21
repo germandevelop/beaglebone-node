@@ -9,9 +9,6 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 
-#include "TCP/Server.hpp"
-#include "TCP/Client.hpp"
-
 
 void initLogging ()
 {
@@ -37,11 +34,14 @@ void initLogging ()
     );
 }
 
-void receiveMessage (int descriptor, std::string message)
+void receiveMessage (std::string message)
 {
     //BOOST_LOG_TRIVIAL(info) << "Message : " << message.size() << " " << message;
 }
 
+#include "TCP/Server.hpp"
+#include "server/Node.Server.hpp"
+//#include "TCP/Client.hpp"
 
 int main (int argc, char *argv[])
 {
@@ -56,6 +56,8 @@ int main (int argc, char *argv[])
     config.processMessageCallback = receiveMessage;
     TCP::Client client { io_context };
     client.start(config);*/
+
+    NodeServer nodeServer { {}, io_context };
 
     TCP::Server::Config config;
     config.port = 4445;
