@@ -84,7 +84,10 @@ Connection::Descriptor Connection::getDescriptor () const
 
 void Connection::sendMessage (std::string message)
 {
-    message.push_back(Connection::msgDelimiter);
+    if (message.back() != Connection::msgDelimiter)
+    {
+        message.push_back(Connection::msgDelimiter);
+    }
 
     auto msgBuffer = boost::make_shared<std::string>(std::move(message));
 

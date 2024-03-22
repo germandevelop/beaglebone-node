@@ -40,6 +40,20 @@ TEST_F(NodeB01TestFixture, Init)
 }
 
 
+TEST_F(NodeB01TestFixture, SendPeriodicMessages)
+{
+    // Arrange: create and set up a system under test
+    NodeB01::State expectedState;
+    expectedState.isMessageToSend = true;
+
+    // Act: poke the system under test
+    NodeB01::State resultState = node.getState((NodeB01::MESSAGE_PERIOD_MIN * 60U * 1000U) + 1U);
+
+    // Assert: make unit test pass or fail
+    EXPECT_EQ(resultState.isMessageToSend, expectedState.isMessageToSend);
+}
+
+
 class NodeB01ParamLuminosity : public NodeB01TestFixture, public testing::WithParamInterface
     <std::tuple<
         NodeB01::Luminosity,

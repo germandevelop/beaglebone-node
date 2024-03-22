@@ -29,20 +29,21 @@
 #define FRONT_PIR_INT_GPIO          0U
 
 
-BoardB01::BoardB01 (boost::asio::io_context &context)
+BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
 :
     Board { context },
     ioContext { context }
 {
-    this->frontPirLastMS = 0;
+    this->config = boost::move(config);
 
+    // Init B01 node
     {
         NodeB01::Config config;
         config.isWarningEnabled = true;
 
         this->node = boost::movelib::make_unique<NodeB01>(config);
     }
-    
+/*
     // Init humidity sensor
     {
         PeriodicHumiditySensor::Config config;
@@ -85,7 +86,7 @@ BoardB01::BoardB01 (boost::asio::io_context &context)
         this->smokeSensor = boost::movelib::make_unique<PeriodicSmokeSensor>(config, this->ioContext);
         this->smokeSensor->launch();
     }
-/*
+
     // Init HDMI display
     {
         OneShotHdmiDisplayB01::Config config;
@@ -106,6 +107,8 @@ BoardB01::BoardB01 (boost::asio::io_context &context)
 
     // Init front pir
     {
+        this->frontPirLastMS = 0;
+
         GpioInt::Config config;
         config.gpio                 = FRONT_PIR_INT_GPIO;
         config.edge                 = GpioInt::EDGE::RISING;
@@ -113,8 +116,7 @@ BoardB01::BoardB01 (boost::asio::io_context &context)
 
         this->gpio = boost::movelib::make_unique<GpioInt>(config, context);
     }
-    */
-
+*/
     return;
 }
 
@@ -162,6 +164,16 @@ void BoardB01::updateState ()
         this->hdmiDisplay->showOneShotData(data, NodeB01::DISPLAY_DURATION_S);
     }
 
+    if (state.isMessageToSend == true)
+    {
+        auto messages = this->node->extractMessages();
+
+        for (auto itr = std::begin(messages); itr != std::end(messages); ++itr)
+        {
+            this->sendNodeMessage(std::move(*itr));
+        }
+    }
+
     return;
 }
 
@@ -175,6 +187,11 @@ void BoardB01::processNodeMessage (NodeMsg message)
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
+}
+
+node_id_t BoardB01::getNodeId () const noexcept
+{
+    return this->node->getId();
 }
 
 std::size_t BoardB01::processPhotoResistorData (Board::PhotoResistorData data)

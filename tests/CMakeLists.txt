@@ -21,6 +21,10 @@ target_sources(tests
     PRIVATE
         src/NodeB01.Test.cpp
 )
+target_compile_options(tests
+    PRIVATE
+        -Wno-missing-field-initializers
+)
 set_target_properties(tests
     PROPERTIES
         CXX_STANDARD_REQUIRED ON

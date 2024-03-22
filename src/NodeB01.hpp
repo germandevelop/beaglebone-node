@@ -32,6 +32,7 @@ class NodeB01
         static constexpr std::size_t HUMIDITY_PERIOD_MIN    = 2U;
         static constexpr std::size_t DUST_PERIOD_MIN        = 4U;
         static constexpr std::size_t SMOKE_PERIOD_MIN       = 2U;
+        static constexpr std::size_t MESSAGE_PERIOD_MIN     = 20U;
 
     public:
         struct Config
@@ -78,10 +79,10 @@ class NodeB01
         void processSmoke (PeriodicSmokeSensorData data);
         void processMessage (const NodeMsg &inMsg, int64_t timeMS);
         MessageContainer extractMessages ();
-        MessageContainer getPeriodicMessages () const;
         bool getDarkness () const noexcept;
         void setConfig (Config config);
         Config getConfig () const;
+        node_id_t getId () const noexcept;
 
     public:
         PeriodicHumiditySensorData getHumidityData () const noexcept;
@@ -93,6 +94,7 @@ class NodeB01
 
     private:
         void updateTime (int64_t timeMS);
+        void addPeriodicMessages (int64_t timeMS);
 
     private:
         Config config;
@@ -103,6 +105,7 @@ class NodeB01
         bool isDark;
         int64_t lightStartTimeMS;
         int64_t displayStartTimeMS;
+        int64_t msgTimeMS;
 
     private:
         PeriodicHumiditySensorData humidityData;

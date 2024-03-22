@@ -6,6 +6,8 @@
 #ifndef BOARD_B01_H_
 #define BOARD_B01_H_
 
+#include <boost/filesystem.hpp>
+
 #include "Board.hpp"
 #include "RemoteControl.Type.hpp"
 #include "PeriodicHumiditySensor.Type.hpp"
@@ -26,7 +28,15 @@ class BoardB01 : public Board
         static constexpr int64_t FRONT_PIR_HYSTERESIS_MS = (1U * 1000U);
 
     public:
-        explicit BoardB01 (boost::asio::io_context &context);
+        struct Config
+        {
+            boost::filesystem::path imageDirectory;
+            boost::filesystem::path soundDirectory;
+            boost::filesystem::path configFile;
+        };
+
+    public:
+        explicit BoardB01 (Config config, boost::asio::io_context &context);
         BoardB01 (const BoardB01&) = delete;
         BoardB01& operator= (const BoardB01&) = delete;
         BoardB01 (BoardB01&&) = delete;
@@ -35,6 +45,7 @@ class BoardB01 : public Board
 
     private:
         virtual void processNodeMessage (NodeMsg message) override final;
+        virtual node_id_t getNodeId () const noexcept override final;
         virtual std::size_t processPhotoResistorData (PhotoResistorData data) override final;
         virtual bool isLightningON () override final;
         virtual void processRemoteButton (REMOTE_CONTROL_BUTTON button) override final;
@@ -47,6 +58,9 @@ class BoardB01 : public Board
         void processDustSensor (PeriodicDustSensorData data);
         void processSmokeSensor (PeriodicSmokeSensorData data);
         void processFrontPir ();
+
+    private:
+        Config config;
 
     private:
         boost::asio::io_context &ioContext;

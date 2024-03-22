@@ -12,6 +12,8 @@
 #include <boost/asio/placeholders.hpp>
 #include <boost/log/trivial.hpp>
 
+#include "Node.hpp"
+#include "TCP/Client.hpp"
 #include "StatusLed.hpp"
 #include "PhotoResistor.hpp"
 #include "RemoteControl.hpp"
@@ -24,14 +26,30 @@ Board::Board (boost::asio::io_context &context)
     ioContext { context },
     photoResistorTimer { ioContext }
 {
-    this->remoteControlLastMS = 0;
-    this->isPhotoResistorReading = false;
-    this->statusColor = STATUS_LED_COLOR::GREEN;
-
-    this->statusLed     = boost::movelib::make_unique<StatusLed>();
-    this->photoResistor = boost::movelib::make_unique<PhotoResistor>();
-
+    // Init status led
     {
+        this->statusColor = STATUS_LED_COLOR::GREEN;
+
+        this->statusLed = boost::movelib::make_unique<StatusLed>();
+
+        this->statusLed->updateColor(this->statusColor);
+    }
+
+    // Init photoresistor
+    {
+        this->isPhotoResistorReading = false;
+
+        this->photoResistor = boost::movelib::make_unique<PhotoResistor>();
+
+        auto asyncCallback = boost::bind(&Board::updatePhotoResistorData, this, boost::asio::placeholders::error);
+        this->photoResistorTimer.expires_from_now(boost::posix_time::minutes(Board::DEFAULT_PHOTORESISTOR_PERIOD_MIN));
+        this->photoResistorTimer.async_wait(asyncCallback);
+    }
+
+    // Init remote control
+    {
+        this->remoteControlLastMS = 0;
+
         RemoteControl::Config config;
         config.gpio             = REMOTE_CONTROL_INT_GPIO;
         config.processCallback  = boost::bind(&Board::processRemoteControl, this, boost::placeholders::_1);
@@ -39,18 +57,48 @@ Board::Board (boost::asio::io_context &context)
         this->remoteControl = boost::movelib::make_unique<RemoteControl>(config, this->ioContext);
     }
 
+    // Init TCP Client
+    {
+        this->client = boost::movelib::make_unique<TCP::Client>(this->ioContext);
+    }
 
-    this->statusLed->updateColor(this->statusColor);
+    // Init node
+    {
+        Node::Config config;
+        config.processRawMessageCallback    = boost::bind(&TCP::Client::sendMessage, this->client.get(), boost::placeholders::_1);
+        config.processMessageCallback       = boost::bind(&Board::receiveNodeMessage, this, boost::placeholders::_1);
 
-    auto asyncCallback = boost::bind(&Board::updatePhotoResistorData, this, boost::asio::placeholders::error);
-    this->photoResistorTimer.expires_from_now(boost::posix_time::minutes(Board::DEFAULT_PHOTORESISTOR_PERIOD_MIN));
-    this->photoResistorTimer.async_wait(asyncCallback);
+        this->node = boost::movelib::make_unique<Node>(config, this->ioContext);
+    }
 
     return;
 }
 
 Board::~Board () = default;
 
+
+void Board::start ()
+{
+    const auto nodeId = this->getNodeId();
+
+    TCP::Client::Config config;
+    config.ip   = std::to_string(node_ip_address[nodeId][0]) + "." + std::to_string(node_ip_address[nodeId][1]) + "."
+                + std::to_string(node_ip_address[nodeId][2]) + "." + std::to_string(node_ip_address[nodeId][3]);
+    config.port = static_cast<decltype(config.port)>(host_port);
+    config.processMessageCallback = boost::bind(&Node::addRawMessage, this->node.get(), boost::placeholders::_1);
+
+    this->client->start(config);
+
+    return;
+}
+
+
+void Board::sendNodeMessage (NodeMsg message)
+{
+    this->node->addMessage(std::move(message));
+
+    return;
+}
 
 void Board::receiveNodeMessage (NodeMsg message)
 {

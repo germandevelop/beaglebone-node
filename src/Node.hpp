@@ -16,7 +16,6 @@ class Node
     public:
         struct Config
         {
-            node_id_t id;
             boost::function<void(std::string)> processRawMessageCallback;
             boost::function<void(NodeMsg)> processMessageCallback;
         };

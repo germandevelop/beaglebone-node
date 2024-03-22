@@ -18,6 +18,7 @@ NodeB01::NodeB01 (NodeB01::Config config)
 
     this->displayStartTimeMS    = 0U;
     this->lightStartTimeMS      = 0U;
+    this->msgTimeMS             = 0U;
 
     this->humidityData.isValid  = false;
     this->dustData.isValid      = false;
@@ -46,6 +47,11 @@ void NodeB01::updateTime (int64_t timeMS)
     if (this->lightStartTimeMS > timeMS)
     {
         this->lightStartTimeMS = 0U;
+    }
+
+    if (this->msgTimeMS > timeMS)
+    {
+        this->msgTimeMS = 0U;
     }
 
     return;
@@ -167,6 +173,8 @@ NodeB01::State NodeB01::getState (int64_t timeMS)
     }
 
     // Update message state
+    this->addPeriodicMessages(timeMS);
+    
     if (this->outMsgArray.empty() == true)
     {
         state.isMessageToSend = false;
@@ -543,45 +551,51 @@ NodeB01::MessageContainer NodeB01::extractMessages ()
     return msgArray;
 }
 
-NodeB01::MessageContainer NodeB01::getPeriodicMessages () const
+void NodeB01::addPeriodicMessages (int64_t timeMS)
 {
-    NodeB01::MessageContainer msgArray;
+    constexpr int64_t MESSAGE_PERIOD_MS = NodeB01::MESSAGE_PERIOD_MIN * 60U * 1000U;
 
+    const int64_t msgDurationMS = timeMS - this->msgTimeMS;
+
+    if (msgDurationMS > MESSAGE_PERIOD_MS)
     {
-        node_warning_id_t warning_id;
+        this->msgTimeMS = timeMS;
 
-        if (this->config.isWarningEnabled == true)
         {
-            warning_id = WARNING_ON;
+            node_warning_id_t warning_id;
+
+            if (this->config.isWarningEnabled == true)
+            {
+                warning_id = WARNING_ON;
+            }
+            else
+            {
+                warning_id = WARNING_OFF;
+            }
+
+            NodeMsg outMsg;
+            outMsg.header.source = NODE_B01;
+            outMsg.header.destArray.insert(NODE_T01);
+
+            outMsg.cmdID = SET_WARNING;
+            outMsg.dataArray.emplace("value_id", static_cast<int>(warning_id));
+
+            this->outMsgArray.push_back(std::move(outMsg));
         }
-        else
+
         {
-            warning_id = WARNING_OFF;
+            NodeMsg outMsg;
+            outMsg.header.source = NODE_B01;
+            outMsg.header.destArray.insert(NODE_T01);
+            outMsg.header.destArray.insert(NODE_B02);
+
+            outMsg.cmdID = SET_MODE;
+            outMsg.dataArray.emplace("value_id", static_cast<int>(this->mode));
+
+            this->outMsgArray.push_back(std::move(outMsg));
         }
-
-        NodeMsg outMsg;
-        outMsg.header.source = NODE_B01;
-        outMsg.header.destArray.insert(NODE_T01);
-
-        outMsg.cmdID = SET_WARNING;
-        outMsg.dataArray.emplace("value_id", static_cast<int>(warning_id));
-
-        msgArray.push_back(std::move(outMsg));
     }
-
-    {
-        NodeMsg outMsg;
-        outMsg.header.source = NODE_B01;
-        outMsg.header.destArray.insert(NODE_T01);
-        outMsg.header.destArray.insert(NODE_B02);
-
-        outMsg.cmdID = SET_MODE;
-        outMsg.dataArray.emplace("value_id", static_cast<int>(this->mode));
-
-        msgArray.push_back(std::move(outMsg));
-    }
-
-    return msgArray;
+    return;
 }
 
 bool NodeB01::getDarkness () const noexcept
@@ -599,6 +613,11 @@ void NodeB01::setConfig (NodeB01::Config config)
 NodeB01::Config NodeB01::getConfig () const
 {
     return this->config;
+}
+
+node_id_t NodeB01::getId () const noexcept
+{
+    return this->id;
 }
 
 

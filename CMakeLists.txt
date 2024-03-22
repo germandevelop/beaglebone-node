@@ -14,7 +14,15 @@ else()
     set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/armhf.cmake")
 endif()
 
-project(beaglebone_server LANGUAGES CXX C VERSION 1.0.0.0)
+project(beaglebone_node)
+
+set(VERSION_MAJOR 1)
+set(VERSION_MINOR 0)
+set(VERSION_PATCH 0)
+configure_file(src/Version.hpp.in Version.hpp @ONLY)
+
+enable_language(CXX)
+enable_language(C)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -48,7 +56,7 @@ set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 set(Boost_USE_DEBUG_LIBS OFF)
 set(Boost_USE_RELEASE_LIBS ON)
-find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup)
+find_package(Boost 1.74.0 REQUIRED COMPONENTS thread log log_setup program_options)
 
 if(BUILD_TESTS)
 else()
@@ -104,8 +112,13 @@ target_link_libraries(bb_testing INTERFACE node)
 
 # Create beaglebone common target
 add_library(bb_common INTERFACE)
+target_include_directories(bb_testing
+    INTERFACE
+        "${CMAKE_CURRENT_BINARY_DIR}"
+)
 target_sources(bb_common
     INTERFACE
+        "${CMAKE_CURRENT_BINARY_DIR}/Version.hpp"
         src/Node.Type.hpp
         src/Node.Mapper.hpp
         src/Node.Mapper.cpp

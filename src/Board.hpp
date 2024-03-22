@@ -14,9 +14,15 @@
 #include "StatusLed.Type.hpp"
 #include "RemoteControl.Type.hpp"
 
+class Node;
 class StatusLed;
 class PhotoResistor;
 class RemoteControl;
+
+namespace TCP
+{
+    class Client;
+}
 
 class Board
 {
@@ -33,7 +39,7 @@ class Board
         virtual ~Board ();
 
     public:
-        void receiveNodeMessage (NodeMsg message);
+        void start ();
 
     protected:
         struct PhotoResistorData
@@ -43,8 +49,12 @@ class Board
         };
 
     protected:
+        void sendNodeMessage (NodeMsg message);
         void updateStatusLed (STATUS_LED_COLOR color);
         std::int64_t getCurrentTime () const;
+
+    private:
+        void receiveNodeMessage (NodeMsg message);
 
     private:
         void updatePhotoResistorData (const boost::system::error_code &error);
@@ -55,12 +65,17 @@ class Board
 
     private:
         virtual void processNodeMessage (NodeMsg message) = 0;
+        virtual node_id_t getNodeId () const noexcept = 0;
         virtual std::size_t processPhotoResistorData (PhotoResistorData data) = 0;
         virtual bool isLightningON () = 0;
         virtual void processRemoteButton (REMOTE_CONTROL_BUTTON button) = 0;
 
     private:
         boost::asio::io_context &ioContext;
+
+    private:
+        boost::movelib::unique_ptr<Node> node;
+        boost::movelib::unique_ptr<TCP::Client> client;
         
     private:
         boost::movelib::unique_ptr<StatusLed> statusLed;
