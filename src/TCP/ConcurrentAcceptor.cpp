@@ -21,52 +21,52 @@ ConcurrentAcceptor::ConcurrentAcceptor (Acceptor::Config config, boost::asio::io
 ConcurrentAcceptor::~ConcurrentAcceptor () = default;
 
 
-std::size_t ConcurrentAcceptor::startConnection (boost::movelib::unique_ptr<Connection> connection)
+std::size_t ConcurrentAcceptor::startConnection (std::unique_ptr<Connection> connection)
 {
-    boost::unique_lock writeMutex { this->mutex };
+    std::scoped_lock writeLock { this->mutex };
 
-    return Acceptor::startConnection(boost::move(connection));
+    return this->Acceptor::startConnection(std::move(connection));
 }
 
 void ConcurrentAcceptor::stopConnections ()
 {
-    boost::shared_lock readMutex { this->mutex };
+    std::shared_lock readLock { this->mutex };
 
-    Acceptor::stopConnections();
+    this->Acceptor::stopConnections();
 
     return;
 }
 
 void ConcurrentAcceptor::sendToAllConnections (std::string message)
 {
-    boost::shared_lock readMutex { this->mutex };
+    std::shared_lock readLock { this->mutex };
 
-    Acceptor::sendToAllConnections(std::move(message));
+    this->Acceptor::sendToAllConnections(std::move(message));
 
     return;
 }
 
 void ConcurrentAcceptor::sendToConnection (const boost::asio::ip::address &ip, std::string message)
 {
-    boost::shared_lock readMutex { this->mutex };
+    std::shared_lock readLock { this->mutex };
 
-    Acceptor::sendToConnection(ip, std::move(message));
+    this->Acceptor::sendToConnection(ip, std::move(message));
 
     return;
 }
 
 std::size_t ConcurrentAcceptor::clearStoppedConnections ()
 {
-    boost::unique_lock writeMutex { this->mutex };
+    std::scoped_lock writeLock { this->mutex };
 
-    return Acceptor::clearStoppedConnections();
+    return this->Acceptor::clearStoppedConnections();
 }
 
 void ConcurrentAcceptor::clearConnections ()
 {
-    boost::unique_lock writeMutex { this->mutex };
+    std::scoped_lock writeLock { this->mutex };
 
-    Acceptor::clearConnections();
+    this->Acceptor::clearConnections();
 
     return;
 }

@@ -3,15 +3,14 @@
  *   Date   : 2019
  ************************************************************/
 
-#ifndef ACCEPTOR_HPP
-#define ACCEPTOR_HPP
+#ifndef TCP_ACCEPTOR_HPP
+#define TCP_ACCEPTOR_HPP
+
+#include <map>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/container/map.hpp>
-#include <boost/container/vector.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 namespace TCP
 {
@@ -23,7 +22,8 @@ namespace TCP
             struct Config
             {
                 unsigned short int port;
-                boost::function<void(std::string)> processMessageCallback;
+                std::function<void(std::string)> processMessageCallback;
+                std::function<void()> processErrorCallback;
             };
 
         public:
@@ -36,10 +36,10 @@ namespace TCP
 
         public:
             void sendMessageToAll (std::string message);
-            void sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message);
+            void sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message);
 
         protected:
-            virtual std::size_t startConnection (boost::movelib::unique_ptr<Connection> connection);
+            virtual std::size_t startConnection (std::unique_ptr<Connection> connection);
             virtual void stopConnections ();
             virtual void sendToAllConnections (std::string message);
             virtual void sendToConnection (const boost::asio::ip::address &ip, std::string message);
@@ -47,28 +47,24 @@ namespace TCP
             virtual void clearConnections ();
 
         private:
-            using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
+            using Socket = std::unique_ptr<boost::asio::ip::tcp::socket>;
             using Descriptor = boost::asio::ip::tcp::socket::native_handle_type;
-            using ConnectionContainer = boost::container::map<Descriptor, boost::movelib::unique_ptr<Connection>>;
+            using ConnectionContainer = std::map<Descriptor, std::unique_ptr<Connection>>;
 
         private:
             void start ();
             void stop ();
 
         private:
-            void waitAcceptance ();
-            void onAccept (Socket socket, const boost::system::error_code &error);
-
             void receiveMessage (std::string message);
-            void sendMessageIP (boost::asio::ip::address ip, std::string message);
             void processError ();
-            void clear (const boost::system::error_code &error);
+
+        private:
+            boost::asio::awaitable<void> listenAsync ();
+            boost::asio::awaitable<void> clearAsync ();
 
         private:
             Config config;
-
-        private:
-            boost::asio::io_context &ioContext;
 
         private:
             boost::asio::deadline_timer timer;
@@ -77,4 +73,4 @@ namespace TCP
     };
 }
 
-#endif // ACCEPTOR_HPP
+#endif // TCP_ACCEPTOR_HPP

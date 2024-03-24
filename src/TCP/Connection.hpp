@@ -3,13 +3,11 @@
  *   Date   : 2019
  ************************************************************/
 
-#ifndef CONNECTION_HPP
-#define CONNECTION_HPP
+#ifndef TCP_CONNECTION_HPP
+#define TCP_CONNECTION_HPP
 
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 namespace TCP
 {
@@ -19,14 +17,14 @@ namespace TCP
             static constexpr char msgDelimiter = '\n';
 
         public:
-            using Socket = boost::movelib::unique_ptr<boost::asio::ip::tcp::socket>;
+            using Socket = std::unique_ptr<boost::asio::ip::tcp::socket>;
             using Descriptor = boost::asio::ip::tcp::socket::native_handle_type;
 
         public:
             struct Config
             {
-                boost::function<void(std::string)> processMessageCallback;
-                boost::function<void()> processErrorCallback;
+                std::function<void(std::string)> processMessageCallback;
+                std::function<void()> processErrorCallback;
             };
 
         public:
@@ -40,28 +38,29 @@ namespace TCP
         public:
             void start ();
             void connect (boost::asio::ip::tcp::endpoint endPoint);
-            void stop ();
-            bool isOpen () const;
-            boost::asio::ip::address getIP () const;
-            Descriptor getDescriptor () const;
+            void stop () noexcept;
 
         public:
             void sendMessage (std::string message);
 
+        public:
+            bool isOpen () const;
+            boost::asio::ip::address getIP () const;
+            Descriptor getDescriptor () const noexcept;
+
         private:
-            void onSocketConnect (const boost::system::error_code &error);
-            void onMessageReceived (const boost::system::error_code &error, std::size_t bytesTransferred);
-            void onMessageSent (const boost::system::error_code &error, std::size_t bytesTransferred);
+            boost::asio::awaitable<void> connectAsync (boost::asio::ip::tcp::endpoint endPoint);
+            boost::asio::awaitable<void> readAsync ();
+            boost::asio::awaitable<void> writeAsync (std::string message);
 
         private:
             Config config;
 
         private:
             Socket socket;
-            boost::asio::streambuf readBuffer;
-            const boost::asio::ip::address ip;
-            const Descriptor descriptor;
+            boost::asio::ip::address ip;
+            Descriptor descriptor;
     };
 }
 
-#endif // CONNECTION_HPP
+#endif // TCP_CONNECTION_HPP

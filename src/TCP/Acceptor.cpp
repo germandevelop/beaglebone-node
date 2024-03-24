@@ -5,10 +5,8 @@
 
 #include "TCP/Acceptor.hpp"
 
-#include <boost/move/make_unique.hpp>
-#include <boost/bind/bind.hpp>
-#include <boost/asio/placeholders.hpp>
-#include <boost/range.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "TCP/Connection.hpp"
@@ -19,7 +17,6 @@ using namespace TCP;
 
 Acceptor::Acceptor (Acceptor::Config config, boost::asio::io_context &context)
 :
-    ioContext { context },
     timer { context },
     acceptor { context, boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::any(), config.port) }
 {
@@ -44,9 +41,8 @@ void Acceptor::start ()
 
     this->clearConnections();
 
-    this->acceptor.listen();
-
-    this->waitAcceptance();
+    auto asyncCallback = std::bind(&Acceptor::listenAsync, this);
+    boost::asio::co_spawn(this->timer.get_executor(), std::move(asyncCallback), boost::asio::detached);
 
     return;
 }
@@ -55,7 +51,8 @@ void Acceptor::stop ()
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : stop";
 
-    this->acceptor.close();
+    boost::system::error_code error;
+    this->acceptor.close(error);
 
     this->stopConnections();
     
@@ -69,20 +66,12 @@ void Acceptor::sendMessageToAll (std::string message)
     return;
 }
 
-void Acceptor::sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message)
+void Acceptor::sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message)
 {
-    for (auto itrIP = boost::const_begin(destArray); itrIP != boost::const_end(destArray); ++itrIP)
+    for (auto itr = std::cbegin(destArray); itr != std::cend(destArray); ++itr)
     {
-        auto asyncCallback = boost::bind(&Acceptor::sendMessageIP, this, *itrIP, message);
-        boost::asio::post(this->ioContext, asyncCallback);
+        this->sendToConnection(*itr, message);
     }
-
-    return;
-}
-
-void Acceptor::sendMessageIP (boost::asio::ip::address ip, std::string message)
-{
-    this->sendToConnection(ip, std::move(message));
 
     return;
 }
@@ -94,87 +83,87 @@ void Acceptor::receiveMessage (std::string message)
     return;
 }
 
-void Acceptor::waitAcceptance ()
+boost::asio::awaitable<void> Acceptor::listenAsync ()
 {
-    auto socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
-    auto socketTemp = socket.get();
-
-    auto asyncCallback =    [this, newSocket = boost::move(socket)] (const boost::system::error_code &error) mutable
-                            {
-                                this->onAccept(boost::move(newSocket), error);
-                            };
-
-    this->acceptor.async_accept(*socketTemp, boost::move(asyncCallback));
-
-    return;
-}
-
-void Acceptor::onAccept (Acceptor::Socket socket, const boost::system::error_code &error)
-{
-    if (error != boost::system::errc::success)
+    try
     {
+        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : listening";
+
+        this->acceptor.listen();
+
+        while (true)
+        {
+            auto socket = std::make_unique<boost::asio::ip::tcp::socket>(this->timer.get_executor());
+
+            co_await this->acceptor.async_accept(*socket, boost::asio::use_awaitable);
+
+            Connection::Config config;
+            config.processMessageCallback   = std::bind(&Acceptor::receiveMessage, this, std::placeholders::_1);
+            config.processErrorCallback     = std::bind(&Acceptor::processError, this);
+
+            auto connection = std::make_unique<Connection>(config, std::move(socket));
+
+            const std::size_t connectionCount = this->startConnection(std::move(connection));
+
+            BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance success";
+            BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : connection count = " << connectionCount;
+        }
+    }
+
+    catch (const boost::system::system_error &exp)
+    {
+        const boost::system::error_code error = exp.code();
+
         BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance failure";
         BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance error = (" << error.value() << ") " << error.message();
-    }
-    else
-    {
-        Connection::Config config;
-        config.processMessageCallback   = boost::bind(&Acceptor::receiveMessage, this, boost::placeholders::_1);
-        config.processErrorCallback     = boost::bind(&Acceptor::processError, this);
 
-        auto connection = boost::movelib::make_unique<Connection>(config, boost::move(socket));
-
-        const std::size_t connectionCount = this->startConnection(boost::move(connection));
-
-        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance success";
-        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : connection count = " << connectionCount;
+        this->config.processErrorCallback();
     }
 
-    this->waitAcceptance();
-
-    return;
+    co_return;
 }
 
 void Acceptor::processError ()
+{
+    BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : process error";
+
+    auto asyncCallback = std::bind(&Acceptor::clearAsync, this);
+    boost::asio::co_spawn(this->timer.get_executor(), std::move(asyncCallback), boost::asio::detached);
+
+    return;
+}
+
+boost::asio::awaitable<void> Acceptor::clearAsync ()
 {
     constexpr long int timeoutS = 1;
 
     BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : clearing after " << timeoutS << " seconds";
 
-    auto asyncCallback = boost::bind(&Acceptor::clear, this, boost::asio::placeholders::error);
     this->timer.expires_from_now(boost::posix_time::seconds(timeoutS));
-    this->timer.async_wait(asyncCallback);
+    co_await this->timer.async_wait(boost::asio::use_awaitable);
 
-    return;
-}
-
-void Acceptor::clear ([[maybe_unused]] const boost::system::error_code &error)
-{
     BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : clearing";
 
     this->clearStoppedConnections();
 
-    return;
+    co_return;
 }
 
 
-std::size_t Acceptor::startConnection (boost::movelib::unique_ptr<Connection> connection)
+std::size_t Acceptor::startConnection (std::unique_ptr<Connection> connection)
 {
+    connection->start();
+
     const auto descriptor = connection->getDescriptor();
 
-    auto [itrConnection, isEmplaced] = this->connectionArray.emplace(descriptor, boost::move(connection));
-
-    if (isEmplaced == true)
-    {
-        itrConnection->second->start();
-    }
+    this->connectionArray.emplace(descriptor, std::move(connection));
 
     return this->connectionArray.size();
 }
 
 void Acceptor::stopConnections ()
 {
-    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    for (auto itrConnection = std::begin(this->connectionArray); itrConnection != std::end(this->connectionArray); ++itrConnection)
     {
         itrConnection->second->stop();
     }
@@ -184,7 +173,7 @@ void Acceptor::stopConnections ()
 
 void Acceptor::sendToAllConnections (std::string message)
 {
-    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    for (auto itrConnection = std::begin(this->connectionArray); itrConnection != std::end(this->connectionArray); ++itrConnection)
     {
         itrConnection->second->sendMessage(message);
     }
@@ -194,7 +183,7 @@ void Acceptor::sendToAllConnections (std::string message)
 
 void Acceptor::sendToConnection (const boost::asio::ip::address &ip, std::string message)
 {
-    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray); ++itrConnection)
+    for (auto itrConnection = std::begin(this->connectionArray); itrConnection != std::end(this->connectionArray); ++itrConnection)
     {
         if (itrConnection->second->getIP() == ip)
         {
@@ -207,7 +196,7 @@ void Acceptor::sendToConnection (const boost::asio::ip::address &ip, std::string
 
 std::size_t Acceptor::clearStoppedConnections ()
 {
-    for (auto itrConnection = boost::begin(this->connectionArray); itrConnection != boost::end(this->connectionArray);)
+    for (auto itrConnection = std::begin(this->connectionArray); itrConnection != std::end(this->connectionArray);)
     {
         if (itrConnection->second->isOpen() != true)
         {

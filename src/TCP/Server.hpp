@@ -3,14 +3,12 @@
  *   Date   : 2019
  ************************************************************/
 
-#ifndef SERVER_HPP
-#define SERVER_HPP
+#ifndef TCP_SERVER_HPP
+#define TCP_SERVER_HPP
 
-#include <boost/asio/io_context.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/ip/address.hpp>
-#include <boost/container/vector.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 namespace TCP
 {
@@ -22,7 +20,7 @@ namespace TCP
             struct Config
             {
                 unsigned short int port;
-                boost::function<void(std::string)> processMessageCallback;
+                std::function<void(std::string)> processMessageCallback;
             };
 
         public:
@@ -37,11 +35,16 @@ namespace TCP
             void start (Config config);
             void stop ();
 
+        public:
             void sendMessageToAll (std::string message);
-            void sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message);
+            void sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message);
 
         private:
             void receiveMessage (std::string message);
+            void processError ();
+
+        private:
+            boost::asio::awaitable<void> restartAsync ();
 
         private:
             Config config;
@@ -50,8 +53,9 @@ namespace TCP
             boost::asio::io_context &ioContext;
 
         private:
-            boost::movelib::unique_ptr<Acceptor> acceptor;
+            std::unique_ptr<Acceptor> acceptor;
+            boost::asio::deadline_timer timer;
     };
 }
 
-#endif // SERVER_HPP
+#endif // TCP_SERVER_HPP

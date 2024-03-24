@@ -8,8 +8,6 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/array.hpp>
 
 #include "Node.Type.hpp"
 #include "node/node.list.h"
@@ -40,8 +38,8 @@ class NodeServer
         boost::asio::io_context &ioContext;
 
     private:
-        boost::movelib::unique_ptr<TCP::Server> server;
-        boost::array<boost::asio::ip::address, NODE_LIST_SIZE> nodeTable;
+        std::unique_ptr<TCP::Server> server;
+        std::array<boost::asio::ip::address, NODE_LIST_SIZE> nodeTable;
 };
 
 #endif // NODE_SERVER_H_

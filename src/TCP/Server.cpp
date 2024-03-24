@@ -5,8 +5,8 @@
 
 #include "TCP/Server.hpp"
 
-#include <boost/bind/bind.hpp>
-#include <boost/move/make_unique.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "TCP/Acceptor.hpp"
@@ -17,7 +17,8 @@ using namespace TCP;
 
 Server::Server (boost::asio::io_context &context)
 :
-    ioContext { context }
+    ioContext { context },
+    timer { context }
 {
     return;
 }
@@ -33,9 +34,10 @@ void Server::start (Server::Config config)
 
     Acceptor::Config acceptorConfig;
     acceptorConfig.port                     = this->config.port;
-    acceptorConfig.processMessageCallback   = boost::bind(&Server::receiveMessage, this, boost::placeholders::_1);
+    acceptorConfig.processMessageCallback   = std::bind(&Server::receiveMessage, this, std::placeholders::_1);
+    acceptorConfig.processErrorCallback     = std::bind(&Server::processError, this);
 
-    this->acceptor = boost::movelib::make_unique<Acceptor>(acceptorConfig, this->ioContext);
+    this->acceptor = std::make_unique<Acceptor>(acceptorConfig, this->ioContext);
 
     return;
 }
@@ -58,11 +60,11 @@ void Server::sendMessageToAll (std::string message)
     return;
 }
 
-void Server::sendMessage (boost::container::vector<boost::asio::ip::address> destArray, std::string message)
+void Server::sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message)
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Server : send message = " << message;
 
-    this->acceptor->sendMessage(boost::move(destArray), std::move(message));
+    this->acceptor->sendMessage(std::move(destArray), std::move(message));
 
     return;
 }
@@ -77,4 +79,35 @@ void Server::receiveMessage (std::string message)
     }
     
     return;
+}
+
+void Server::processError ()
+{
+    BOOST_LOG_TRIVIAL(info) << "TCP Server : process error";
+
+    auto asyncCallback = std::bind(&Server::restartAsync, this);
+    boost::asio::co_spawn(this->timer.get_executor(), std::move(asyncCallback), boost::asio::detached);
+
+    return;
+}
+
+boost::asio::awaitable<void> Server::restartAsync ()
+{
+    constexpr long int timeoutS = 10;
+
+    BOOST_LOG_TRIVIAL(info) << "TCP Server : restarting after " << timeoutS << " seconds";
+
+    this->timer.expires_from_now(boost::posix_time::seconds(timeoutS));
+    co_await this->timer.async_wait(boost::asio::use_awaitable);
+
+    BOOST_LOG_TRIVIAL(info) << "TCP Server : restarting";
+
+    Acceptor::Config acceptorConfig;
+    acceptorConfig.port                     = this->config.port;
+    acceptorConfig.processMessageCallback   = std::bind(&Server::receiveMessage, this, std::placeholders::_1);
+    acceptorConfig.processErrorCallback     = std::bind(&Server::processError, this);
+
+    this->acceptor = std::make_unique<Acceptor>(acceptorConfig, this->ioContext);
+
+    co_return;
 }

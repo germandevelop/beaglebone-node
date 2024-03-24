@@ -8,8 +8,6 @@
 
 #include <boost/asio/post.hpp>
 #include <boost/bind/bind.hpp>
-#include <boost/move/make_unique.hpp>
-#include <boost/range/size.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -21,9 +19,9 @@ NodeServer::NodeServer (boost::asio::io_context &context)
     ioContext { context }
 {
     // Init node table 
-    for (std::size_t i = 0U; i < boost::size(this->nodeTable); ++i)
+    for (std::size_t i = 0U; i < std::size(this->nodeTable); ++i)
     {
-        boost::array<std::string, 4U> ipArray;
+        std::array<std::string, 4U> ipArray;
         ipArray[0] = std::to_string(node_ip_address[i][0]);
         ipArray[1] = std::to_string(node_ip_address[i][1]);
         ipArray[2] = std::to_string(node_ip_address[i][2]);
@@ -37,7 +35,7 @@ NodeServer::NodeServer (boost::asio::io_context &context)
     }
 
     // Init TCP Server
-    this->server = boost::movelib::make_unique<TCP::Server>(context);
+    this->server = std::make_unique<TCP::Server>(context);
 
     return;
 }
@@ -49,7 +47,7 @@ void NodeServer::start ()
 {
     TCP::Server::Config config;
     config.port                     = static_cast<decltype(config.port)>(host_port);
-    config.processMessageCallback   = boost::bind(&NodeServer::receiveMessage, this, boost::placeholders::_1);
+    config.processMessageCallback   = std::bind(&NodeServer::receiveMessage, this, std::placeholders::_1);
 
     this->server->start(config);
 
@@ -58,7 +56,7 @@ void NodeServer::start ()
 
 void NodeServer::receiveMessage (std::string message)
 {
-    auto asyncCallback = boost::bind(&NodeServer::redirectMessage, this, std::move(message));
+    auto asyncCallback = std::bind(&NodeServer::redirectMessage, this, std::move(message));
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -72,12 +70,6 @@ void NodeServer::redirectMessage (std::string message)
     {
         header = deserializeHeader(message);
     }
-    catch (const boost::exception &exp)
-    {
-        BOOST_LOG_TRIVIAL(error) << "Node Server : " << boost::diagnostic_information(exp);
-
-        return;
-    }
     catch (const std::exception &exp)
     {
         BOOST_LOG_TRIVIAL(error) << "Node Server : " << exp.what();
@@ -85,7 +77,7 @@ void NodeServer::redirectMessage (std::string message)
         return;
     }
 
-    boost::container::vector<boost::asio::ip::address> destArray;
+    std::vector<boost::asio::ip::address> destArray;
     destArray.reserve(header.destArray.size());
 
     for (auto itr = std::cbegin(header.destArray); itr != std::cend(header.destArray); ++itr)
@@ -95,7 +87,7 @@ void NodeServer::redirectMessage (std::string message)
         destArray.push_back(boost::move(ip));
     }
 
-    this->server->sendMessage(boost::move(destArray), std::move(message));
+    this->server->sendMessage(std::move(destArray), std::move(message));
 
     return;
 }

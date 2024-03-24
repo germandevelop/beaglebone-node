@@ -3,12 +3,11 @@
  *   Date   : 2019
  ************************************************************/
 
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#ifndef TCP_CLIENT_HPP
+#define TCP_CLIENT_HPP
 
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 namespace TCP
 {
@@ -21,7 +20,7 @@ namespace TCP
             {
                 std::string ip;
                 unsigned short int port;
-                boost::function<void(std::string)> processMessageCallback;
+                std::function<void(std::string)> processMessageCallback;
             };
             
         public:
@@ -38,23 +37,21 @@ namespace TCP
 
         public:
             void sendMessage (std::string message);
-
+        
         private:
             void receiveMessage (std::string message);
-
             void processError ();
-            void connect (const boost::system::error_code &error);
+
+        private:
+            boost::asio::awaitable<void> reconnectAsync ();
 
         private:
             Config config;
 
         private:
-            boost::asio::io_context &ioContext;
-
-        private:
-            boost::movelib::unique_ptr<Connection> connection;
+            std::unique_ptr<Connection> connection;
             boost::asio::deadline_timer timer;
     };
 }
 
-#endif // CLIENT_HPP
+#endif // TCP_CLIENT_HPP

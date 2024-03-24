@@ -7,24 +7,20 @@
 
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/bind/bind.hpp>
-#include <boost/asio/placeholders.hpp>
+#include <boost/asio/streambuf.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/log/trivial.hpp>
 
 
 using namespace TCP;
 
 
-Connection::Connection (Connection::Config config, Socket socket)
-:
-    ip { socket->remote_endpoint().address() },
-    descriptor { socket->native_handle() }
+Connection::Connection (Connection::Config config, Connection::Socket socket)
 {
     this->config = config;
 
-    this->socket = boost::move(socket);
+    this->socket = std::move(socket);
 
     return;
 }
@@ -39,8 +35,11 @@ void Connection::start ()
         this->socket->open(boost::asio::ip::tcp::v4());
     }
 
-    auto asyncCallback = boost::bind(&Connection::onMessageReceived, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    boost::asio::async_read_until(*this->socket.get(), this->readBuffer, Connection::msgDelimiter, asyncCallback);
+    this->ip            = socket->remote_endpoint().address();
+    this->descriptor    = socket->native_handle();
+
+    auto asyncCallback = std::bind(&Connection::readAsync, this);
+    boost::asio::co_spawn(this->socket->get_executor(), std::move(asyncCallback), boost::asio::detached);
 
     return;
 }
@@ -50,15 +49,88 @@ void Connection::connect (boost::asio::ip::tcp::endpoint endPoint)
     if (this->socket->is_open() != true)
     {
         this->socket->open(boost::asio::ip::tcp::v4());
-
-        auto asyncCallback = boost::bind(&Connection::onSocketConnect, this, boost::asio::placeholders::error);
-        this->socket->async_connect(endPoint, asyncCallback);
     }
+        
+    auto asyncCallback = std::bind(&Connection::connectAsync, this, boost::move(endPoint));
+    boost::asio::co_spawn(this->socket->get_executor(), std::move(asyncCallback), boost::asio::detached);
 
     return;
 }
 
-void Connection::stop ()
+boost::asio::awaitable<void> Connection::connectAsync (boost::asio::ip::tcp::endpoint endPoint)
+{
+    try
+    {
+        co_await this->socket->async_connect(endPoint, boost::asio::use_awaitable);
+
+        this->ip            = socket->remote_endpoint().address();
+        this->descriptor    = socket->native_handle();
+
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket connection success";
+
+        auto asyncCallback = std::bind(&Connection::readAsync, this);
+        boost::asio::co_spawn(this->socket->get_executor(), std::move(asyncCallback), boost::asio::detached);
+    }
+
+    catch (const boost::system::system_error &exp)
+    {
+        const boost::system::error_code error = exp.code();
+
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket connection failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
+                                 << ") socket error = (" << error.value() << ") " << error.message();
+
+        this->stop();
+        this->config.processErrorCallback();
+    }
+
+    co_return;
+}
+
+boost::asio::awaitable<void> Connection::readAsync ()
+{
+    try
+    {
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket is reading";
+
+        boost::asio::streambuf readBuffer;
+
+        while (true)
+        {
+            const auto bytesTransferred = co_await boost::asio::async_read_until(*this->socket.get(), readBuffer,
+                                                                                Connection::msgDelimiter, boost::asio::use_awaitable);
+
+            BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving success";
+            BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") bytes transferred = " << bytesTransferred;
+
+            std::ostringstream inputMessage;
+            inputMessage << &readBuffer;
+
+            this->config.processMessageCallback(inputMessage.str());
+        }
+    }
+
+    catch (const boost::system::system_error &exp)
+    {
+        const boost::system::error_code error = exp.code();
+
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
+                                 << ") error = (" << error.value() << ") " << error.message();
+
+        if (error == boost::asio::error::eof)
+        {
+            BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving EOF";
+
+            this->stop();
+            this->config.processErrorCallback();
+        }
+    }
+
+    co_return;
+}
+
+void Connection::stop () noexcept
 {
     boost::system::error_code error;
     this->socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, error);
@@ -77,7 +149,7 @@ boost::asio::ip::address Connection::getIP () const
     return this->ip;
 }
 
-Connection::Descriptor Connection::getDescriptor () const
+Connection::Descriptor Connection::getDescriptor () const noexcept
 {
     return this->descriptor;
 }
@@ -89,111 +161,33 @@ void Connection::sendMessage (std::string message)
         message.push_back(Connection::msgDelimiter);
     }
 
-    auto msgBuffer = boost::make_shared<std::string>(std::move(message));
-
-    auto asyncCallback =    [this, msgBuffer] (const boost::system::error_code &error, std::size_t bytesTransferred)
-                            {
-                                this->onMessageSent(error, bytesTransferred);
-                            };
-
-    boost::asio::async_write(*this->socket.get(), boost::asio::buffer(*msgBuffer.get()), asyncCallback);
+    auto asyncCallback = std::bind(&Connection::writeAsync, this, std::move(message));
+    boost::asio::co_spawn(this->socket->get_executor(), std::move(asyncCallback), boost::asio::detached);
 
     return;
 }
 
-void Connection::onSocketConnect (const boost::system::error_code &error)
+boost::asio::awaitable<void> Connection::writeAsync (std::string message)
 {
-    if (error != boost::system::errc::success)
+    try
     {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket connection failure";
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
-                                 << ") socket error = (" << error.value() << ") " << error.message();
+        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket is writing";
 
-        this->stop();
+        const auto bytesTransferred = co_await boost::asio::async_write(*this->socket.get(),
+                                                                        boost::asio::buffer(message), boost::asio::use_awaitable);
 
-        this->config.processErrorCallback();
-    }
-    else
-    {
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket connection success";
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") socket is reading";
-
-        auto asyncCallback = boost::bind(&Connection::onMessageReceived, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-        boost::asio::async_read_until(*this->socket.get(), this->readBuffer, Connection::msgDelimiter, asyncCallback);
-    }
-
-    return;
-}
-
-void Connection::onMessageReceived (const boost::system::error_code &error, std::size_t bytesTransferred)
-{
-    if (error != boost::system::errc::success)
-    {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving failure";
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
-                                 << ") error = (" << error.value() << ") " << error.message();
-
-        if (error == boost::asio::error::eof)
-        {
-            BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving EOF";
-
-            this->stop();
-
-            this->config.processErrorCallback();
-        }
-    }
-    else
-    {
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message receiving success";
-        BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") bytes transferred = " << bytesTransferred;
-
-        std::ostringstream inputMessage;
-        inputMessage << &this->readBuffer;
-
-        auto asyncCallback = boost::bind(&Connection::onMessageReceived, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-        boost::asio::async_read_until(*this->socket.get(), this->readBuffer, Connection::msgDelimiter, asyncCallback);
-
-        this->config.processMessageCallback(inputMessage.str());
-    }
-
-    return;
-}
-
-void Connection::onMessageSent (const boost::system::error_code &error, std::size_t bytesTransferred)
-{
-    if (error != boost::system::errc::success)
-    {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message sending failure";
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
-                                 << ") error = (" << error.value() << ") " << error.message();
-    }
-    else
-    {
         BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message sending success";
         BOOST_LOG_TRIVIAL(info) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") bytes transferred = " << bytesTransferred;
     }
 
-    return;
-}
-
-
-/*
-auto asyncErrorCallback = boost::bind(&Connection::onSocketError, this, boost::asio::placeholders::error);
-this->socket->async_wait(boost::asio::ip::tcp::socket::wait_error, asyncErrorCallback);
-void Connection::onSocketError (const boost::system::error_code &error)
-{
-    const auto descriptor = this->socket->native_handle();
-
-    if (error != boost::system::errc::success)
+    catch (const boost::system::system_error &exp)
     {
-        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << descriptor
+        const boost::system::error_code error = exp.code();
+
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor << ") message sending failure";
+        BOOST_LOG_TRIVIAL(error) << "TCP Connection : (" << this->ip << "/" << this->descriptor
                                  << ") error = (" << error.value() << ") " << error.message();
-
-        this->stop();
-
-        this->config.processErrorCallback(static_cast<int>(descriptor));
     }
 
-    return;
+    co_return;
 }
-*/

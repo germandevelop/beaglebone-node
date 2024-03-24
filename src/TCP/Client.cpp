@@ -5,9 +5,8 @@
 
 #include "TCP/Client.hpp"
 
-#include <boost/move/make_unique.hpp>
-#include <boost/bind/bind.hpp>
-#include <boost/asio/placeholders.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "TCP/Connection.hpp"
@@ -18,7 +17,6 @@ using namespace TCP;
 
 Client::Client (boost::asio::io_context &context)
 :
-    ioContext { context },
     timer { context }
 {
     return;
@@ -31,17 +29,17 @@ void Client::start (Client::Config config)
 {
     this->config = config;
 
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : connecting";
+
     Connection::Config connConfig;
-    connConfig.processMessageCallback   = boost::bind(&Client::receiveMessage, this, boost::placeholders::_1);
-    connConfig.processErrorCallback     = boost::bind(&Client::processError, this);
+    connConfig.processMessageCallback   = std::bind(&Client::receiveMessage, this, std::placeholders::_1);
+    connConfig.processErrorCallback     = std::bind(&Client::processError, this);
 
-    Connection::Socket socket = boost::movelib::make_unique<boost::asio::ip::tcp::socket>(this->ioContext);
+    auto socket = std::make_unique<boost::asio::ip::tcp::socket>(this->timer.get_executor());
+    this->connection = std::make_unique<Connection>(connConfig, std::move(socket));
 
-    this->connection = boost::movelib::make_unique<Connection>(connConfig, boost::move(socket));
-
-    auto asyncCallback = boost::bind(&Client::connect, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(0));
-    this->timer.async_wait(asyncCallback);
+    boost::asio::ip::tcp::endpoint endPoint { boost::asio::ip::address::from_string(this->config.ip), this->config.port };
+    this->connection->connect(boost::move(endPoint));
 
     return;
 }
@@ -73,29 +71,33 @@ void Client::receiveMessage (std::string message)
     {
         this->config.processMessageCallback(std::move(message));
     }
+
     return;
 }
 
 void Client::processError ()
 {
-    constexpr long int timeoutS = 10;
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : process error";
 
-    BOOST_LOG_TRIVIAL(info) << "TCP Client : reconnecting after " << timeoutS << " seconds";
-
-    auto asyncCallback = boost::bind(&Client::connect, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(timeoutS));
-    this->timer.async_wait(asyncCallback);
+    auto asyncCallback = std::bind(&Client::reconnectAsync, this);
+    boost::asio::co_spawn(this->timer.get_executor(), std::move(asyncCallback), boost::asio::detached);
 
     return;
 }
 
-void Client::connect ([[maybe_unused]] const boost::system::error_code &error)
+boost::asio::awaitable<void> Client::reconnectAsync ()
 {
-    BOOST_LOG_TRIVIAL(info) << "TCP Client : connecting";
+    constexpr long int timeoutS = 10;
+
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : reconnecting after " << timeoutS << " seconds";
+
+    this->timer.expires_from_now(boost::posix_time::seconds(timeoutS));
+    co_await this->timer.async_wait(boost::asio::use_awaitable);
+
+    BOOST_LOG_TRIVIAL(info) << "TCP Client : reconnecting";
 
     boost::asio::ip::tcp::endpoint endPoint { boost::asio::ip::address::from_string(this->config.ip), this->config.port };
-
     this->connection->connect(boost::move(endPoint));
 
-    return;
+    co_return;
 }
