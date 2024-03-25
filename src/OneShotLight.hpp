@@ -6,24 +6,16 @@
 #ifndef ONE_SHOT_LIGHT_H_
 #define ONE_SHOT_LIGHT_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/move/unique_ptr.hpp>
+#include <boost/asio/awaitable.hpp>
 
 class GpioOut;
 
 class OneShotLight
 {
     public:
-        enum POWER_MODE : std::size_t
-        {
-            HIGH_ENABLED = 0U,
-            LOW_ENABLED
-        };
-
         struct Config
         {
-            POWER_MODE powerMode;
             std::size_t powerGpio;
         };
 
@@ -40,7 +32,7 @@ class OneShotLight
         void disableOneShotPower ();
 
     private:
-        void disableOneShotPower (const boost::system::error_code &error);
+        boost::asio::awaitable<void> enableAsync (std::size_t disableTimeS);
 
     private:
         void enablePower ();
@@ -51,7 +43,7 @@ class OneShotLight
 
     private:
         boost::asio::deadline_timer timer;
-        boost::movelib::unique_ptr<GpioOut> powerGpio;
+        std::unique_ptr<GpioOut> powerGpio;
         bool isPowerEnabled;
 };
 

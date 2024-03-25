@@ -87,7 +87,7 @@ boost::asio::awaitable<void> Acceptor::listenAsync ()
 {
     try
     {
-        BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : listening";
+        BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : listening";
 
         this->acceptor.listen();
 
@@ -105,8 +105,8 @@ boost::asio::awaitable<void> Acceptor::listenAsync ()
 
             const std::size_t connectionCount = this->startConnection(std::move(connection));
 
-            BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : acceptance success";
-            BOOST_LOG_TRIVIAL(error) << "TCP Acceptor : connection count = " << connectionCount;
+            BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : acceptance success";
+            BOOST_LOG_TRIVIAL(info) << "TCP Acceptor : connection count = " << connectionCount;
         }
     }
 

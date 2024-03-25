@@ -5,13 +5,11 @@
 
 #include "PeriodicSmokeSensor.hpp"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/move/make_unique.hpp>
-#include <boost/bind/bind.hpp>
-#include <boost/asio/placeholders.hpp>
-#include <boost/range.hpp>
-#include <boost/range/algorithm/nth_element.hpp>
-#include <boost/pfr/functors.hpp>
+#include <ranges>
+#include <numeric>
+
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "device/SmokeSensor.hpp"
@@ -24,14 +22,12 @@ PeriodicSmokeSensor::PeriodicSmokeSensor (PeriodicSmokeSensor::Config config, bo
 {
     this->config = config;
 
-    this->buffer.reserve(this->config.sampleCount);
-
-    this->sensor = boost::movelib::make_unique<SmokeSensor>();
+    this->sensor = std::make_unique<SmokeSensor>();
 
     GpioOut::Config gpioOutConfig;
     gpioOutConfig.gpio = this->config.powerGpio;
 
-    this->powerGpio = boost::movelib::make_unique<GpioOut>(gpioOutConfig);
+    this->powerGpio = std::make_unique<GpioOut>(gpioOutConfig);
 
     return;
 }
@@ -39,89 +35,113 @@ PeriodicSmokeSensor::PeriodicSmokeSensor (PeriodicSmokeSensor::Config config, bo
 PeriodicSmokeSensor::~PeriodicSmokeSensor () = default;
 
 
-void PeriodicSmokeSensor::launch ()
+void PeriodicSmokeSensor::start ()
 {
-    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: initial warm up";
+    BOOST_LOG_TRIVIAL(info) << "Smoke sensor : start";
 
-    this->powerGpio->setHigh();
+    auto asyncCallback = std::bind(&PeriodicSmokeSensor::readAsync, this);
+    boost::asio::co_spawn(this->timer.get_executor(), std::move(asyncCallback), boost::asio::detached);
 
-    auto asyncCallback = boost::bind(&PeriodicSmokeSensor::enablePower, this, boost::asio::placeholders::error);
+    return;
+}
+
+boost::asio::awaitable<void> PeriodicSmokeSensor::readAsync ()
+{
+    std::vector<std::size_t> adcBuffer;
+    adcBuffer.reserve(this->config.sampleCount);
+
+    BOOST_LOG_TRIVIAL(info) << "Smoke sensor : initial warm up";
+
+    this->enablePower();
+
     this->timer.expires_from_now(boost::posix_time::seconds(this->config.initWarmTimeS));
-    this->timer.async_wait(asyncCallback);
+    co_await this->timer.async_wait(boost::asio::use_awaitable);
 
-    return;
+    while (true)
+    {
+        try
+        {
+            adcBuffer.clear();
+
+            BOOST_LOG_TRIVIAL(info) << "Smoke sensor : power on";
+
+            this->enablePower();
+
+            this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
+            co_await this->timer.async_wait(boost::asio::use_awaitable);
+
+            BOOST_LOG_TRIVIAL(info) << "Smoke sensor : read data";
+
+            for (std::size_t i = 0U; i < this->config.sampleCount; ++i)
+            {
+                this->timer.expires_from_now(boost::posix_time::seconds(this->config.sampleTimeS));
+                co_await this->timer.async_wait(boost::asio::use_awaitable);
+
+                const auto adcValue = this->sensor->readAdcValue();
+                adcBuffer.push_back(adcValue);
+
+                BOOST_LOG_TRIVIAL(info) << "Smoke sensor : read ADC value = " << adcValue;
+            }
+
+            const auto data = this->computeData(adcBuffer);
+
+            BOOST_LOG_TRIVIAL(info) << "Smoke sensor : average ADC value = " << data.adcValue;
+
+            if (this->config.processCallback != nullptr)
+            {
+                this->config.processCallback(data);
+            }
+
+            BOOST_LOG_TRIVIAL(info) << "Smoke sensor : power off";
+
+            this->disablePower();
+
+            this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
+            co_await this->timer.async_wait(boost::asio::use_awaitable);
+        }
+
+        catch(const std::exception &exp)
+        {
+            BOOST_LOG_TRIVIAL(error) << "Smoke sensor : error = " << exp.what();
+        }
+
+        this->disablePower();
+
+        this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
+        co_await this->timer.async_wait(boost::asio::use_awaitable);
+    }
+
+    co_return;
 }
 
 
-void PeriodicSmokeSensor::enablePower ([[maybe_unused]] const boost::system::error_code &error)
+void PeriodicSmokeSensor::enablePower ()
 {
-    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: power on";
-
     this->powerGpio->setHigh();
 
-    auto asyncCallback = boost::bind(&PeriodicSmokeSensor::readData, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::seconds(this->config.warmTimeS));
-    this->timer.async_wait(asyncCallback);
-
     return;
 }
 
-void PeriodicSmokeSensor::readData ([[maybe_unused]] const boost::system::error_code &error)
+PeriodicSmokeSensorData PeriodicSmokeSensor::computeData (std::vector<std::size_t> &adcBuffer)
 {
-    const auto adcValue = this->sensor->readAdcValue();
-    this->buffer.push_back(adcValue);
+    const std::size_t sampleHalf = this->config.sampleCount / 2U;
 
-    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: read ADC value = " << adcValue;
+    std::ranges::nth_element(adcBuffer, std::ranges::next(std::begin(adcBuffer), sampleHalf), std::greater<std::size_t>());
 
-    if (this->buffer.size() >= this->config.sampleCount)
-    {
-        const std::size_t sampleHalf = this->config.sampleCount / 2U;
+    PeriodicSmokeSensorData data;
+    data.isValid    = false;
 
-        boost::range::nth_element(this->buffer, (boost::begin(this->buffer) + sampleHalf), boost::pfr::greater<size_t>());
+    data.adcValue = std::accumulate(std::cbegin(adcBuffer), std::next(std::cbegin(adcBuffer), sampleHalf), 0U);
 
-        PeriodicSmokeSensorData data;
-        data.isValid = false;
-        data.adcValue = 0U;
+    data.adcValue   = data.adcValue / sampleHalf;
+    data.isValid    = true;
 
-        for (auto itr = boost::const_begin(this->buffer); itr != (boost::const_begin(this->buffer) + sampleHalf); ++itr)
-        {
-            data.adcValue += *itr;
-        }
-        this->buffer.clear();
-        
-        data.adcValue   = data.adcValue / sampleHalf;
-        data.isValid    = true;
-
-        BOOST_LOG_TRIVIAL(info) << "Smoke sensor: average ADC value = " << data.adcValue;
-
-        if (this->config.processCallback != nullptr)
-        {
-            this->config.processCallback(data);
-        }
-
-        auto asyncCallback = boost::bind(&PeriodicSmokeSensor::disablePower, this, boost::asio::placeholders::error);
-        this->timer.expires_from_now(boost::posix_time::seconds(0));
-        this->timer.async_wait(asyncCallback);
-    }
-    else
-    {
-        auto asyncCallback = boost::bind(&PeriodicSmokeSensor::readData, this, boost::asio::placeholders::error);
-        this->timer.expires_from_now(boost::posix_time::seconds(this->config.sampleTimeS));
-        this->timer.async_wait(asyncCallback);
-    }
-
-    return;
+    return data;
 }
 
-void PeriodicSmokeSensor::disablePower ([[maybe_unused]] const boost::system::error_code &error)
+void PeriodicSmokeSensor::disablePower ()
 {
-    BOOST_LOG_TRIVIAL(info) << "Smoke sensor: power off";
-
     this->powerGpio->setLow();
-
-    auto asyncCallback = boost::bind(&PeriodicSmokeSensor::enablePower, this, boost::asio::placeholders::error);
-    this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
-    this->timer.async_wait(asyncCallback);
 
     return;
 }

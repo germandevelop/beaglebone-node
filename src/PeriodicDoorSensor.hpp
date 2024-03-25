@@ -6,7 +6,6 @@
 #ifndef PERIODIC_DOOR_SENSOR_H_
 #define PERIODIC_DOOR_SENSOR_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
 
 #include "PeriodicDoorSensor.Type.hpp"
@@ -29,9 +28,6 @@ class PeriodicDoorSensor
 
     private:
         Config config;
-
-    private:
-        boost::asio::io_context &ioContext;
 
     private:
         boost::asio::deadline_timer timer;

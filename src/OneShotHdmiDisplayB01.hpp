@@ -6,9 +6,8 @@
 #ifndef ONE_SHOT_HDMI_DISPLAY_B01_H_
 #define ONE_SHOT_HDMI_DISPLAY_B01_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/move/unique_ptr.hpp>
+#include <boost/asio/awaitable.hpp>
 #include <boost/filesystem.hpp>
 
 #include "OneShotHdmiDisplayB01.Type.hpp"
@@ -38,10 +37,13 @@ class OneShotHdmiDisplayB01
         void disableOneShotPower ();
 
     private:
-        void playOneShotAlarm (const boost::system::error_code &error);
-        void playOneShotIntrusion (const boost::system::error_code &error);
-        void drawOneShotData (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS, const boost::system::error_code &error);
-        void disableOneShotPower (const boost::system::error_code &error);
+        boost::asio::awaitable<void> showAsync (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS);
+
+    private:
+        void playAlarm ();
+        void playIntrusion ();
+        void playWarning ();
+        void drawData (OneShotHdmiDisplayDataB01 data);
 
     private:
         void playAudio (boost::filesystem::path file) const;
@@ -55,8 +57,8 @@ class OneShotHdmiDisplayB01
 
     private:
         boost::asio::deadline_timer timer;
-        boost::movelib::unique_ptr<HdmiDisplay> display;
-        boost::movelib::unique_ptr<GpioOut> powerGpio;
+        std::unique_ptr<HdmiDisplay> display;
+        std::unique_ptr<GpioOut> powerGpio;
         bool isPowerEnabled;
 };
 

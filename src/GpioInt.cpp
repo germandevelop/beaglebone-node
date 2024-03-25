@@ -5,12 +5,11 @@
 
 #include "GpioInt.hpp"
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/array.hpp>
-#include <boost/bind/bind.hpp>
-#include <boost/asio/placeholders.hpp>
-#include <boost/lexical_cast.hpp>
+#include <fstream>
+#include <filesystem>
+
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 
 
 GpioInt::GpioInt (GpioInt::Config config, boost::asio::io_context &context)
@@ -21,33 +20,36 @@ GpioInt::GpioInt (GpioInt::Config config, boost::asio::io_context &context)
 
     this->fileDescriptor = (-1);
 
-    const std::string gpio = boost::lexical_cast<std::string>(config.gpio);
-    const boost::filesystem::path valuePath { "/sys/class/gpio/gpio" + gpio + "/value" };
-    const boost::filesystem::path directionPath { "/sys/class/gpio/gpio" + gpio + "/direction" };
-    const boost::filesystem::path edgePath { "/sys/class/gpio/gpio" + gpio + "/edge" };
+    const std::string gpio = std::to_string(config.gpio);
+    const std::filesystem::path valuePath { "/sys/class/gpio/gpio" + gpio + "/value" };
+    const std::filesystem::path directionPath { "/sys/class/gpio/gpio" + gpio + "/direction" };
+    const std::filesystem::path edgePath { "/sys/class/gpio/gpio" + gpio + "/edge" };
 
     // Create gpio
-    if (boost::filesystem::exists(valuePath) != true)
+    if (std::filesystem::exists(valuePath) != true)
     {
-        boost::filesystem::ofstream dataStream { "/sys/class/gpio/export" };
+        std::ofstream dataStream;
+        dataStream.open("/sys/class/gpio/export", std::ofstream::out);
         dataStream << this->config.gpio;
     }
 
     // Set direction
     {
-        boost::filesystem::ofstream dataStream { directionPath };
+        std::ofstream dataStream;
+        dataStream.open(directionPath, std::ofstream::out);
         dataStream << "in";
     }
 
     // Set edge
     {
-        boost::array<std::string, 4U> edgeArray;
+        std::array<std::string, 4U> edgeArray;
         edgeArray[GpioInt::EDGE::NONE]      = "none";
         edgeArray[GpioInt::EDGE::RISING]    = "rising";
         edgeArray[GpioInt::EDGE::FALLING]   = "falling";
         edgeArray[GpioInt::EDGE::BOTH]      = "both";
 
-        boost::filesystem::ofstream dataStream { edgePath };
+        std::ofstream dataStream;
+        dataStream.open(edgePath, std::ofstream::out);
         dataStream << edgeArray[this->config.edge];
     }
 
@@ -55,7 +57,7 @@ GpioInt::GpioInt (GpioInt::Config config, boost::asio::io_context &context)
 
     if (this->fileDescriptor < 0)
     {
-        boost::throw_exception(std::runtime_error { "File open error" });
+        throw std::runtime_error { "File open error" };
     }
 
     uint8_t value;
@@ -63,8 +65,8 @@ GpioInt::GpioInt (GpioInt::Config config, boost::asio::io_context &context)
 
     this->udpSocket.assign(boost::asio::ip::udp::v4(), this->fileDescriptor);
 
-    auto asyncCallback = boost::bind(&GpioInt::receiveCallback, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    this->udpSocket.async_receive(boost::asio::null_buffers(), boost::asio::ip::udp::socket::message_out_of_band, asyncCallback);
+    auto asyncCallback = std::bind(&GpioInt::readAsync, this);
+    boost::asio::co_spawn(context, std::move(asyncCallback), boost::asio::detached);
 
     return;
 }
@@ -77,15 +79,19 @@ GpioInt::~GpioInt ()
 }
 
 
-void GpioInt::receiveCallback ([[maybe_unused]] const boost::system::error_code &error, [[maybe_unused]] std::size_t bytesTransferred)
+boost::asio::awaitable<void> GpioInt::readAsync ()
 {
-    this->config.interruptCallback();
+    while (true)
+    {
+        co_await this->udpSocket.async_receive(boost::asio::null_buffers(),
+                                                boost::asio::ip::udp::socket::message_out_of_band,
+                                                boost::asio::use_awaitable);
 
-    uint8_t value;
-    [[maybe_unused]] ssize_t bytes = read(this->fileDescriptor, (void*)&value, 1U);
+        uint8_t value;
+        [[maybe_unused]] ssize_t bytes = read(this->fileDescriptor, (void*)&value, 1U);
+        
+        this->config.interruptCallback();
+    }
 
-    auto asyncCallback = boost::bind(&GpioInt::receiveCallback, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    this->udpSocket.async_receive(boost::asio::null_buffers(), boost::asio::ip::udp::socket::message_out_of_band, asyncCallback);
-
-    return;
+    co_return;
 }

@@ -6,10 +6,8 @@
 #ifndef PERIODIC_HUMIDITY_SENSOR_H_
 #define PERIODIC_HUMIDITY_SENSOR_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include "PeriodicHumiditySensor.Type.hpp"
 
@@ -27,7 +25,7 @@ class PeriodicHumiditySensor
             std::size_t sleepTimeMin;
             std::size_t powerGpio;
 
-            boost::function<void(PeriodicHumiditySensorData)> processCallback;
+            std::function<void(PeriodicHumiditySensorData)> processCallback;
         };
 
     public:
@@ -39,21 +37,25 @@ class PeriodicHumiditySensor
         ~PeriodicHumiditySensor ();
 
     public:
-        void launch ();
+        void start ();
 
     private:
-        void enablePower (const boost::system::error_code &error);
-        void enableModule (const boost::system::error_code &error);
-        void readData (const boost::system::error_code &error);
-        void disable (const boost::system::error_code &error);
+        boost::asio::awaitable<void> readAsync ();
+
+    private:
+        void enablePower ();
+        void enableModule ();
+        PeriodicHumiditySensorData readData ();
+        void disableModule ();
+        void disablePower ();
 
     private:
         Config config;
 
     private:
         boost::asio::deadline_timer timer;
-        boost::movelib::unique_ptr<HumiditySensor> sensor;
-        boost::movelib::unique_ptr<GpioOut> powerGpio;
+        std::unique_ptr<HumiditySensor> sensor;
+        std::unique_ptr<GpioOut> powerGpio;
 };
 
 #endif // PERIODIC_HUMIDITY_SENSOR_H_

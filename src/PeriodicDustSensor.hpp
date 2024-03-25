@@ -6,10 +6,8 @@
 #ifndef PERIODIC_DUST_SENSOR_H_
 #define PERIODIC_DUST_SENSOR_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include "PeriodicDustSensor.Type.hpp"
 
@@ -27,7 +25,7 @@ class PeriodicDustSensor
             std::size_t sleepTimeMin;
             std::size_t powerGpio;
 
-            boost::function<void(PeriodicDustSensorData)> processCallback;
+            std::function<void(PeriodicDustSensorData)> processCallback;
         };
 
     public:
@@ -39,21 +37,25 @@ class PeriodicDustSensor
         ~PeriodicDustSensor ();
 
     public:
-        void launch ();
+        void start ();
 
     private:
-        void enablePower (const boost::system::error_code &error);
-        void enableModule (const boost::system::error_code &error);
-        void readData (const boost::system::error_code &error);
-        void disable (const boost::system::error_code &error);
+        boost::asio::awaitable<void> readAsync ();
+
+    private:
+        void enablePower ();
+        void enableModule ();
+        PeriodicDustSensorData readData ();
+        void disableModule ();
+        void disablePower ();
 
     private:
         Config config;
 
     private:
         boost::asio::deadline_timer timer;
-        boost::movelib::unique_ptr<DustSensor> sensor;
-        boost::movelib::unique_ptr<GpioOut> powerGpio;
+        std::unique_ptr<DustSensor> sensor;
+        std::unique_ptr<GpioOut> powerGpio;
 };
 
 #endif // PERIODIC_DUST_SENSOR_H_

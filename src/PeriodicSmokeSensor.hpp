@@ -6,11 +6,8 @@
 #ifndef PERIODIC_SMOKE_SENSOR_H_
 #define PERIODIC_SMOKE_SENSOR_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/container/vector.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include "PeriodicSmokeSensor.Type.hpp"
 
@@ -29,7 +26,7 @@ class PeriodicSmokeSensor
             std::size_t sleepTimeMin;
             std::size_t powerGpio;
 
-            boost::function<void(PeriodicSmokeSensorData)> processCallback;
+            std::function<void(PeriodicSmokeSensorData)> processCallback;
         };
 
     public:
@@ -41,21 +38,23 @@ class PeriodicSmokeSensor
         ~PeriodicSmokeSensor ();
 
     public:
-        void launch ();
+        void start ();
 
     private:
-        void enablePower (const boost::system::error_code &error);
-        void readData (const boost::system::error_code &error);
-        void disablePower (const boost::system::error_code &error);
+        boost::asio::awaitable<void> readAsync ();
+
+    private:
+        void enablePower ();
+        PeriodicSmokeSensorData computeData (std::vector<std::size_t> &adcBuffer);
+        void disablePower ();
 
     private:
         Config config;
 
     private:
         boost::asio::deadline_timer timer;
-        boost::movelib::unique_ptr<SmokeSensor> sensor;
-        boost::movelib::unique_ptr<GpioOut> powerGpio;
-        boost::container::vector<std::size_t> buffer;
+        std::unique_ptr<SmokeSensor> sensor;
+        std::unique_ptr<GpioOut> powerGpio;
 };
 
 #endif // PERIODIC_SMOKE_SENSOR_H_

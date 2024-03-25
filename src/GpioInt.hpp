@@ -7,7 +7,7 @@
 #define GPIO_INT_H_
 
 #include <boost/asio/ip/udp.hpp>
-#include <boost/function.hpp>
+#include <boost/asio/awaitable.hpp>
 
 class GpioInt
 {
@@ -24,7 +24,7 @@ class GpioInt
         {
             std::size_t gpio;
             EDGE edge;
-            boost::function<void()> interruptCallback;
+            std::function<void()> interruptCallback;
         };
 
     public:
@@ -36,7 +36,7 @@ class GpioInt
         ~GpioInt ();
 
     private:
-        void receiveCallback (const boost::system::error_code &error, std::size_t bytesTransferred);
+        boost::asio::awaitable<void> readAsync ();
 
     private:
         Config config;

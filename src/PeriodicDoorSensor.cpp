@@ -8,8 +8,7 @@
 
 PeriodicDoorSensor::PeriodicDoorSensor (PeriodicDoorSensor::Config config, boost::asio::io_context &context)
 :
-    ioContext { context },
-    timer { ioContext }
+    timer { context }
 {
     this->config = config;
 

@@ -7,10 +7,7 @@
 #define REMOTE_CONTROL_H_
 
 #include <boost/asio/io_context.hpp>
-#include <boost/move/unique_ptr.hpp>
-#include <boost/array.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/function.hpp>
 
 #include "RemoteControl.Type.hpp"
 
@@ -23,7 +20,7 @@ class RemoteControl
         struct Config
         {
             std::size_t gpio;
-            boost::function<void(REMOTE_CONTROL_BUTTON)> processCallback;
+            std::function<void(REMOTE_CONTROL_BUTTON)> processCallback;
         };
 
     public:
@@ -41,10 +38,10 @@ class RemoteControl
         Config config;
 
     private:
-        boost::movelib::unique_ptr<GpioInt> gpio;
-        boost::movelib::unique_ptr<vs1838_control_t> vs1838_control;
+        std::unique_ptr<GpioInt> gpio;
+        std::unique_ptr<vs1838_control_t> vs1838_control;
         boost::posix_time::ptime start;
-        boost::array<std::uint32_t, REMOTE_CONTROL_BUTTON::UNKNOWN> buttonTable;
+        std::array<std::uint32_t, REMOTE_CONTROL_BUTTON::UNKNOWN> buttonTable;
 };
 
 #endif // REMOTE_CONTROL_H_

@@ -5,10 +5,6 @@
 
 #include "RemoteControl.hpp"
 
-#include <boost/bind/bind.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/move/make_unique.hpp>
-
 #include "GpioInt.hpp"
 #include "devices/vs1838_control.h"
 
@@ -16,17 +12,6 @@
 RemoteControl::RemoteControl (RemoteControl::Config config, boost::asio::io_context &context)
 {
     this->config = config;
-
-    {
-        vs1838_control_config_t config;
-        config.start_bit    = 13520U;
-        config.one_bit      = 2140U;
-        config.zero_bit     = 1060U;
-        config.threshold    = 300U;
-
-        this->vs1838_control = boost::movelib::make_unique<vs1838_control_t>();
-        vs1838_control_init(this->vs1838_control.get(), &config);
-    }
 
     this->buttonTable[REMOTE_CONTROL_BUTTON::ZERO]  = ZERO_BUTTON_CODE;
     this->buttonTable[REMOTE_CONTROL_BUTTON::ONE]   = ONE_BUTTON_CODE;
@@ -47,12 +32,23 @@ RemoteControl::RemoteControl (RemoteControl::Config config, boost::asio::io_cont
     this->buttonTable[REMOTE_CONTROL_BUTTON::DOWN]  = DOWN_BUTTON_CODE;
 
     {
+        vs1838_control_config_t config;
+        config.start_bit    = 13520U;
+        config.one_bit      = 2140U;
+        config.zero_bit     = 1060U;
+        config.threshold    = 300U;
+
+        this->vs1838_control = std::make_unique<vs1838_control_t>();
+        vs1838_control_init(this->vs1838_control.get(), &config);
+    }
+    
+    {
         GpioInt::Config config;
         config.gpio                 = this->config.gpio;
         config.edge                 = GpioInt::EDGE::FALLING;
-        config.interruptCallback    = boost::bind(&RemoteControl::processSignal, this);
+        config.interruptCallback    = std::bind(&RemoteControl::processSignal, this);
 
-        this->gpio = boost::movelib::make_unique<GpioInt>(config, context);
+        this->gpio = std::make_unique<GpioInt>(config, context);
     }
 
     this->start = boost::posix_time::microsec_clock::local_time();
