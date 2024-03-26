@@ -7,7 +7,7 @@
 #include "Node.Mapper.hpp"
 
 #include <boost/asio/post.hpp>
-#include <boost/bind/bind.hpp>
+#include <boost/log/trivial.hpp>
 
 
 Node::Node (Node::Config config, boost::asio::io_context &context)
@@ -24,7 +24,7 @@ Node::~Node () = default;
 
 void Node::addRawMessage (std::string message)
 {
-    auto asyncCallback = boost::bind(&Node::processRawMessage, this, std::move(message));
+    auto asyncCallback = std::bind(&Node::processRawMessage, this, std::move(message));
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -32,7 +32,7 @@ void Node::addRawMessage (std::string message)
 
 void Node::addMessage (NodeMsg message)
 {
-    auto asyncCallback = boost::bind(&Node::processMessage, this, std::move(message));
+    auto asyncCallback = std::bind(&Node::processMessage, this, std::move(message));
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -46,12 +46,10 @@ void Node::processRawMessage (std::string message)
     {
         nodeMsg = deserializeMessage(message);
     }
-    catch (const boost::exception &exp)
-    {
-        return;
-    }
     catch (const std::exception &exp)
     {
+        BOOST_LOG_TRIVIAL(error) << "Node : error = " << exp.what();
+
         return;
     }
 

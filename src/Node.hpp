@@ -7,7 +7,6 @@
 #define NODE_H_
 
 #include <boost/asio/io_context.hpp>
-#include <boost/function.hpp>
 
 #include "Node.Type.hpp"
 
@@ -16,8 +15,8 @@ class Node
     public:
         struct Config
         {
-            boost::function<void(std::string)> processRawMessageCallback;
-            boost::function<void(NodeMsg)> processMessageCallback;
+            std::function<void(std::string)> processRawMessageCallback;
+            std::function<void(NodeMsg)> processMessageCallback;
         };
 
     public:

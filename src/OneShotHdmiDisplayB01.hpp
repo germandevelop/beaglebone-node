@@ -6,9 +6,10 @@
 #ifndef ONE_SHOT_HDMI_DISPLAY_B01_H_
 #define ONE_SHOT_HDMI_DISPLAY_B01_H_
 
+#include <filesystem>
+
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/awaitable.hpp>
-#include <boost/filesystem.hpp>
 
 #include "OneShotHdmiDisplayB01.Type.hpp"
 
@@ -22,6 +23,8 @@ class OneShotHdmiDisplayB01
         {
             std::size_t warmTimeS;
             std::size_t powerGpio;
+            std::filesystem::path imageDirectory;
+            std::filesystem::path soundDirectory;
         };
 
     public:
@@ -40,13 +43,10 @@ class OneShotHdmiDisplayB01
         boost::asio::awaitable<void> showAsync (OneShotHdmiDisplayDataB01 data, std::size_t showTimeS);
 
     private:
-        void playAlarm ();
-        void playIntrusion ();
-        void playWarning ();
         void drawData (OneShotHdmiDisplayDataB01 data);
 
     private:
-        void playAudio (boost::filesystem::path file) const;
+        void playAudio (std::filesystem::path file) const;
 
     private:
         void enablePower ();

@@ -4,7 +4,6 @@
  ************************************************************/
 
 #include <boost/program_options.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
@@ -17,10 +16,10 @@
 
 struct Options
 {
-    boost::filesystem::path logDirectory;
-    boost::filesystem::path imageDirectory;
-    boost::filesystem::path soundDirectory;
-    boost::filesystem::path configFile;
+    std::filesystem::path logDirectory;
+    std::filesystem::path imageDirectory;
+    std::filesystem::path soundDirectory;
+    std::filesystem::path configDirectory;
 };
 
 
@@ -36,11 +35,11 @@ int main (int argc, char *argv[])
     boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work = boost::asio::make_work_guard(io_context);
 
     BoardB01::Config config;
-    config.imageDirectory   = boost::move(options.imageDirectory);
-    config.soundDirectory   = boost::move(options.soundDirectory);
-    config.configFile       = boost::move(options.configFile);
+    config.imageDirectory   = std::move(options.imageDirectory);
+    config.soundDirectory   = std::move(options.soundDirectory);
+    config.configDirectory  = std::move(options.configDirectory);
 
-    BoardB01 board { boost::move(config), io_context };
+    BoardB01 board { std::move(config), io_context };
     board.start();
 
     io_context.run();
@@ -55,10 +54,10 @@ Options parseOptions (int argc, char *argv[])
 
     boost::program_options::options_description optionDescription("Options");
     optionDescription.add_options()
-        ("sound,s", boost::program_options::value<boost::filesystem::path>(), "Directory with sounds")
-        ("image,i", boost::program_options::value<boost::filesystem::path>(), "Directory with images")
-        ("config,c", boost::program_options::value<boost::filesystem::path>(), "Configuration file")
-        ("log,l", boost::program_options::value<boost::filesystem::path>(), "Directory for logging")
+        ("sound,s", boost::program_options::value<std::filesystem::path>(), "Directory with sounds")
+        ("image,i", boost::program_options::value<std::filesystem::path>(), "Directory with images")
+        ("config,c", boost::program_options::value<std::filesystem::path>(), "Directory with configurations")
+        ("log,l", boost::program_options::value<std::filesystem::path>(), "Directory for logging")
         ("help,h", "Show help")
         ("version,v", "Show version")
     ;
@@ -82,22 +81,22 @@ Options parseOptions (int argc, char *argv[])
 
     if (optionMap.count("log") != 0U)
     {
-        options.logDirectory = optionMap["log"].as<boost::filesystem::path>();
+        options.logDirectory = optionMap["log"].as<std::filesystem::path>();
     }
 
     if (optionMap.count("sound") != 0U)
     {
-        options.soundDirectory = optionMap["sound"].as<boost::filesystem::path>();
+        options.soundDirectory = optionMap["sound"].as<std::filesystem::path>();
     }
 
     if (optionMap.count("image") != 0U)
     {
-        options.imageDirectory = optionMap["image"].as<boost::filesystem::path>();
+        options.imageDirectory = optionMap["image"].as<std::filesystem::path>();
     }
 
     if (optionMap.count("config") != 0U)
     {
-        options.configFile = optionMap["config"].as<boost::filesystem::path>();
+        options.configDirectory = optionMap["config"].as<std::filesystem::path>();
     }
 
     return options;
@@ -107,7 +106,7 @@ void initLogging (const Options &options)
 {
     if (options.logDirectory.empty() != true)
     {
-        if ((boost::filesystem::exists(options.logDirectory) == true) && (boost::filesystem::is_directory(options.logDirectory) == true))
+        if ((std::filesystem::exists(options.logDirectory) == true) && (std::filesystem::is_directory(options.logDirectory) == true))
         {
             boost::log::add_file_log
             (

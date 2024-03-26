@@ -24,7 +24,7 @@ OneShotHdmiDisplayB01::OneShotHdmiDisplayB01 (OneShotHdmiDisplayB01::Config conf
 :
     timer { context }
 {
-    this->config = config;
+    this->config = std::move(config);
 
     this->isPowerEnabled = false;
 
@@ -89,7 +89,9 @@ boost::asio::awaitable<void> OneShotHdmiDisplayB01::showAsync (OneShotHdmiDispla
 
             while (true)
             {
-                this->playAlarm();
+                std::filesystem::path file = this->config.soundDirectory.string() + "/alarm.wav";
+
+                this->playAudio(std::move(file));
 
                 this->timer.expires_from_now(boost::posix_time::seconds(3));
                 co_await this->timer.async_wait(boost::asio::use_awaitable);
@@ -99,9 +101,11 @@ boost::asio::awaitable<void> OneShotHdmiDisplayB01::showAsync (OneShotHdmiDispla
         {
             BOOST_LOG_TRIVIAL(info) << "HDMI display : play intrusion";
 
-            while(true)
+            while (true)
             {
-                this->playIntrusion();
+                std::filesystem::path file = this->config.soundDirectory.string() + "/intrusion.wav";
+
+                this->playAudio(std::move(file));
 
                 this->timer.expires_from_now(boost::posix_time::seconds(3));
                 co_await this->timer.async_wait(boost::asio::use_awaitable);
@@ -115,7 +119,9 @@ boost::asio::awaitable<void> OneShotHdmiDisplayB01::showAsync (OneShotHdmiDispla
 
             if (data.isWarningAudio == true)
             {
-                this->playWarning();
+                std::filesystem::path file = this->config.soundDirectory.string() + "/warning.wav";
+
+                this->playAudio(std::move(file));
             }
 
             this->timer.expires_from_now(boost::posix_time::seconds(showTimeS));
@@ -137,33 +143,6 @@ boost::asio::awaitable<void> OneShotHdmiDisplayB01::showAsync (OneShotHdmiDispla
     co_return;
 }
 
-
-void OneShotHdmiDisplayB01::playAlarm ()
-{
-    const boost::filesystem::path file = "/mnt/ro_data/audio/alarm.wav";
-
-    this->playAudio(std::move(file));
-    
-    return;
-}
-
-void OneShotHdmiDisplayB01::playIntrusion ()
-{
-    const boost::filesystem::path file = "/mnt/ro_data/audio/intrusion.wav";
-
-    this->playAudio(std::move(file));
-
-    return;
-}
-
-void OneShotHdmiDisplayB01::playWarning ()
-{
-    const boost::filesystem::path file = "/mnt/ro_data/audio/warning.wav";
-
-    this->playAudio(std::move(file));
-
-    return;
-}
 
 void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
 {
@@ -485,22 +464,27 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
     }
 
     {
-        HdmiDisplay::Image image;
-        image.x = 700.0;
-        image.y = 350.0;
-        image.file = "/mnt/ro_data/images/smile_green.png";
+        std::filesystem::path file = this->config.imageDirectory.string() + "/smile_green.png";
 
         if ((smokeDataColor == HdmiDisplay::COLOR::WHITE) || (glassHouseDoorStateColor == HdmiDisplay::COLOR::WHITE))
         {
-            image.file = "/mnt/ro_data/images/smile_orange.png";
+            file = this->config.imageDirectory.string() + "/smile_orange.png";
         }
 
         if ((smokeDataColor == HdmiDisplay::COLOR::RED) || (glassHouseDoorStateColor == HdmiDisplay::COLOR::RED))
         {
-            image.file = "/mnt/ro_data/images/smile_red.png";
+            file = this->config.imageDirectory.string() + "/smile_red.png";
         }
 
-        this->display->drawImage(std::move(image));
+        if (std::filesystem::exists(file) == true)
+        {
+            HdmiDisplay::Image image;
+            image.x = 700.0;
+            image.y = 350.0;
+            image.file = file.string();
+
+            this->display->drawImage(std::move(image));
+        }
     }
 
     this->display->disableFrameBuffer();
@@ -509,9 +493,14 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
 }
 
 
-void OneShotHdmiDisplayB01::playAudio (boost::filesystem::path file) const
+void OneShotHdmiDisplayB01::playAudio (std::filesystem::path file) const
 {
     // arecord -t wav -r 48000 -c 2 -f S16_LE file.wav
+
+    if (std::filesystem::exists(file) == false)
+    {
+        return;
+    }
 
     std_error_t error;
     std_error_init(&error);

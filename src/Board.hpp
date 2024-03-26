@@ -6,9 +6,8 @@
 #ifndef BOARD_H_
 #define BOARD_H_
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/move/unique_ptr.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include "Node.Type.hpp"
 #include "StatusLed.Type.hpp"
@@ -28,6 +27,7 @@ class Board
 {
     private:
         static constexpr std::size_t DEFAULT_PHOTORESISTOR_PERIOD_MIN   = 5U;
+        static constexpr std::size_t PHOTORESISTOR_MEAUSEREMENT_COUNT   = 5U;
         static constexpr int64_t REMOTE_CONTROL_HYSTERESIS_MS           = (1U * 1000U);
 
     public:
@@ -55,13 +55,10 @@ class Board
 
     private:
         void receiveNodeMessage (NodeMsg message);
-
-    private:
-        void updatePhotoResistorData (const boost::system::error_code &error);
-        std::size_t readPhotoResistorData ();
-
-    private:
         void processRemoteControl (REMOTE_CONTROL_BUTTON button);
+
+    private:
+        boost::asio::awaitable<void> updatePhotoResistorDataAsync ();
 
     private:
         virtual void processNodeMessage (NodeMsg message) = 0;
@@ -74,20 +71,20 @@ class Board
         boost::asio::io_context &ioContext;
 
     private:
-        boost::movelib::unique_ptr<Node> node;
-        boost::movelib::unique_ptr<TCP::Client> client;
+        std::unique_ptr<Node> node;
+        std::unique_ptr<TCP::Client> client;
         
     private:
-        boost::movelib::unique_ptr<StatusLed> statusLed;
+        std::unique_ptr<StatusLed> statusLed;
         STATUS_LED_COLOR statusColor;
 
     private:
         boost::asio::deadline_timer photoResistorTimer;
-        boost::movelib::unique_ptr<PhotoResistor> photoResistor;
+        std::unique_ptr<PhotoResistor> photoResistor;
         bool isPhotoResistorReading;
 
     private:
-        boost::movelib::unique_ptr<RemoteControl> remoteControl;
+        std::unique_ptr<RemoteControl> remoteControl;
         int64_t remoteControlLastMS;
 };
 

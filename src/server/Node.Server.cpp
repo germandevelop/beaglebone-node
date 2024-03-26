@@ -72,7 +72,7 @@ void NodeServer::redirectMessage (std::string message)
     }
     catch (const std::exception &exp)
     {
-        BOOST_LOG_TRIVIAL(error) << "Node Server : " << exp.what();
+        BOOST_LOG_TRIVIAL(error) << "Node Server : error = " << exp.what();
 
         return;
     }

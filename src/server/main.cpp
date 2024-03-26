@@ -3,8 +3,9 @@
  *   Date   : 2019
  ************************************************************/
 
+#include <filesystem>
+
 #include <boost/program_options.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
@@ -17,7 +18,7 @@
 
 struct Options
 {
-    boost::filesystem::path logDirectory;
+    std::filesystem::path logDirectory;
 };
 
 
@@ -47,7 +48,7 @@ Options parseOptions (int argc, char *argv[])
 
     boost::program_options::options_description optionDescription("Options");
     optionDescription.add_options()
-        ("log,l", boost::program_options::value<boost::filesystem::path>(), "Directory for logging")
+        ("log,l", boost::program_options::value<std::filesystem::path>(), "Directory for logging")
         ("help,h", "Show help")
         ("version,v", "Show version")
     ;
@@ -71,7 +72,7 @@ Options parseOptions (int argc, char *argv[])
 
     if (optionMap.count("log") != 0U)
     {
-        options.logDirectory = optionMap["log"].as<boost::filesystem::path>();
+        options.logDirectory = optionMap["log"].as<std::filesystem::path>();
     }
 
     return options;
@@ -81,7 +82,7 @@ void initLogging (const Options &options)
 {
     if (options.logDirectory.empty() != true)
     {
-        if ((boost::filesystem::exists(options.logDirectory) == true) && (boost::filesystem::is_directory(options.logDirectory) == true))
+        if ((std::filesystem::exists(options.logDirectory) == true) && (std::filesystem::is_directory(options.logDirectory) == true))
         {
             boost::log::add_file_log
             (

@@ -8,8 +8,6 @@
 #include <cmath>
 
 #include <boost/asio/post.hpp>
-#include <boost/move/make_unique.hpp>
-#include <boost/bind/bind.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "NodeB01.hpp"
@@ -19,6 +17,7 @@
 #include "OneShotHdmiDisplayB01.hpp"
 #include "OneShotLight.hpp"
 #include "GpioInt.hpp"
+#include "Serializer.hpp"
 
 
 #define HDMI_DISPLAY_POWER_GPIO     0U
@@ -34,16 +33,18 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
     Board { context },
     ioContext { context }
 {
-    this->config = boost::move(config);
+    this->config = std::move(config);
+
+    this->configuration = this->load();
 
     // Init B01 node
     {
         NodeB01::Config config;
-        config.isWarningEnabled = true;
+        config.isWarningEnabled = this->configuration.isWarningEnabled;
 
-        this->node = boost::movelib::make_unique<NodeB01>(config);
+        this->node = std::make_unique<NodeB01>(config);
     }
-/*
+
     // Init humidity sensor
     {
         PeriodicHumiditySensor::Config config;
@@ -52,10 +53,10 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
         config.moduleTimeS      = 5U;
         config.sleepTimeMin     = NodeB01::HUMIDITY_PERIOD_MIN;
         config.powerGpio        = HUMIDITY_SENSOR_POWER_GPIO;
-        config.processCallback  = boost::bind(&BoardB01::processHumiditySensor, this, boost::placeholders::_1);
+        config.processCallback  = std::bind(&BoardB01::processHumiditySensor, this, std::placeholders::_1);
 
-        this->humiditySensor = boost::movelib::make_unique<PeriodicHumiditySensor>(config, this->ioContext);
-        this->humiditySensor->launch();
+        this->humiditySensor = std::make_unique<PeriodicHumiditySensor>(config, this->ioContext);
+        this->humiditySensor->start();
     }
 
     // Init dust sensor
@@ -66,10 +67,10 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
         config.moduleTimeS      = 45U;
         config.sleepTimeMin     = NodeB01::DUST_PERIOD_MIN;
         config.powerGpio        = DUST_SENSOR_POWER_GPIO;
-        config.processCallback  = boost::bind(&BoardB01::processDustSensor, this, boost::placeholders::_1);
+        config.processCallback  = std::bind(&BoardB01::processDustSensor, this, std::placeholders::_1);
 
-        this->dustSensor = boost::movelib::make_unique<PeriodicDustSensor>(config, this->ioContext);
-        this->dustSensor->launch();
+        this->dustSensor = std::make_unique<PeriodicDustSensor>(config, this->ioContext);
+        this->dustSensor->start();
     }
 
     // Init smoke sensor
@@ -81,28 +82,29 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
         config.sampleTimeS      = 2U;
         config.sleepTimeMin     = NodeB01::SMOKE_PERIOD_MIN;
         config.powerGpio        = SMOKE_SENSOR_POWER_GPIO;
-        config.processCallback  = boost::bind(&BoardB01::processSmokeSensor, this, boost::placeholders::_1);
+        config.processCallback  = std::bind(&BoardB01::processSmokeSensor, this, std::placeholders::_1);
 
-        this->smokeSensor = boost::movelib::make_unique<PeriodicSmokeSensor>(config, this->ioContext);
-        this->smokeSensor->launch();
+        this->smokeSensor = std::make_unique<PeriodicSmokeSensor>(config, this->ioContext);
+        this->smokeSensor->start();
     }
 
     // Init HDMI display
     {
         OneShotHdmiDisplayB01::Config config;
-        config.warmTimeS    = 8U;
-        config.powerGpio    = HDMI_DISPLAY_POWER_GPIO;
+        config.warmTimeS        = 8U;
+        config.powerGpio        = HDMI_DISPLAY_POWER_GPIO;
+        config.imageDirectory   = this->config.imageDirectory;
+        config.soundDirectory   = this->config.soundDirectory;
 
-        this->hdmiDisplay = boost::movelib::make_unique<OneShotHdmiDisplayB01>(config, this->ioContext);
+        this->hdmiDisplay = std::make_unique<OneShotHdmiDisplayB01>(std::move(config), this->ioContext);
     }
 
     // Init light
     {
         OneShotLight::Config config;
-        config.powerMode    = OneShotLight::POWER_MODE::HIGH_ENABLED;
-        config.powerGpio    = LIGHT_POWER_GPIO;
+        config.powerGpio = LIGHT_POWER_GPIO;
 
-        this->light = boost::movelib::make_unique<OneShotLight>(config, this->ioContext);
+        this->light = std::make_unique<OneShotLight>(config, this->ioContext);
     }
 
     // Init front pir
@@ -112,11 +114,11 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
         GpioInt::Config config;
         config.gpio                 = FRONT_PIR_INT_GPIO;
         config.edge                 = GpioInt::EDGE::RISING;
-        config.interruptCallback    = boost::bind(&BoardB01::processFrontPir, this);
+        config.interruptCallback    = std::bind(&BoardB01::processFrontPir, this);
 
-        this->gpio = boost::movelib::make_unique<GpioInt>(config, context);
+        this->gpio = std::make_unique<GpioInt>(config, context);
     }
-*/
+
     return;
 }
 
@@ -127,7 +129,8 @@ void BoardB01::updateState ()
 {
     const auto timeMS = this->getCurrentTime();
 
-    const NodeB01::State state = this->node->getState(timeMS);
+    const NodeB01::State state      = this->node->getState(timeMS);
+    const NodeB01::Config config    = this->node->getConfig();
 
     this->updateStatusLed(state.statusLedColor);
 
@@ -153,8 +156,7 @@ void BoardB01::updateState ()
         data.T01_HIGH_TEMPERATURE_C = NodeB01::T01_HIGH_TEMPERATURE_C;
 
         data.humidityDataB02 = this->node->getHumidityDataB02();
-
-        const NodeB01::Config config = this->node->getConfig();
+        
         data.isWarningEnabled = config.isWarningEnabled;
 
         data.isWarningAudio     = state.isWarningAudio;
@@ -174,6 +176,13 @@ void BoardB01::updateState ()
         }
     }
 
+    if (config.isWarningEnabled != this->configuration.isWarningEnabled)
+    {
+        this->configuration.isWarningEnabled = config.isWarningEnabled;
+
+        this->save(this->configuration);
+    }
+
     return;
 }
 
@@ -183,7 +192,7 @@ void BoardB01::processNodeMessage (NodeMsg message)
 
     this->node->processMessage(message, timeMS);
 
-    auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+    auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -201,7 +210,7 @@ std::size_t BoardB01::processPhotoResistorData (Board::PhotoResistorData data)
 
     const float lux = std::pow(10.0F, (std::log10(oneLuxResistanceOhm / (float)(data.resistanceOhm)) / gamma));  // Probably it does not work
 
-    BOOST_LOG_TRIVIAL(info) << "Board T01 : photoresistor luminosity = " << lux << " lux";
+    BOOST_LOG_TRIVIAL(info) << "Board B01 : photoresistor luminosity = " << lux << " lux";
 
     NodeB01::Luminosity luminosity;
     luminosity.lux      = std::round(lux);
@@ -209,7 +218,7 @@ std::size_t BoardB01::processPhotoResistorData (Board::PhotoResistorData data)
 
     this->node->processLuminosity(luminosity);
 
-    auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+    auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
 
     return NodeB01::LUMINOSITY_PERIOD_MIN;
@@ -232,7 +241,7 @@ void BoardB01::processRemoteButton (REMOTE_CONTROL_BUTTON button)
 
     this->node->processRemoteButton(button, timeMS);
 
-    auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+    auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -242,7 +251,7 @@ void BoardB01::processHumiditySensor (PeriodicHumiditySensorData data)
 {
     this->node->processHumidity(data);
 
-    auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+    auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -252,7 +261,7 @@ void BoardB01::processDustSensor (PeriodicDustSensorData data)
 {
     this->node->processDust(data);
 
-    auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+    auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -262,7 +271,7 @@ void BoardB01::processSmokeSensor (PeriodicSmokeSensorData data)
 {
     this->node->processSmoke(data);
 
-    auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+    auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
 
     return;
@@ -274,14 +283,77 @@ void BoardB01::processFrontPir ()
 
     if ((timeMS - this->frontPirLastMS) > BoardB01::FRONT_PIR_HYSTERESIS_MS)
     {
-        BOOST_LOG_TRIVIAL(info) << "Board T01 : front pir event";
+        BOOST_LOG_TRIVIAL(info) << "Board B01 : front pir event";
 
         this->frontPirLastMS = timeMS;
 
         this->node->processFrontMovement(timeMS);
 
-        auto asyncCallback = boost::bind(&BoardB01::updateState, this);
+        auto asyncCallback = std::bind(&BoardB01::updateState, this);
         boost::asio::post(this->ioContext, asyncCallback);
+    }
+
+    return;
+}
+
+
+BoardB01::Configuration BoardB01::load () const noexcept
+{
+    // Setup default configuration
+    BoardB01::Configuration config;
+    config.isWarningEnabled = true;
+
+    try
+    {
+        // Try to read configuration from file
+        const bool isDirectoryExist =   (std::filesystem::exists(this->config.configDirectory) == true) &&
+                                        (std::filesystem::is_directory(this->config.configDirectory) == true);
+
+        if (isDirectoryExist == true)
+        {
+            const std::filesystem::path file = this->config.configDirectory.string() + "/B01.ini";
+
+            if (std::filesystem::exists(file) == true)
+            {
+                const auto data = Serializer::Ini::load(file);
+
+                if (auto itr = data.find("WARNING_MODE"); itr != std::end(data))
+                {
+                    config.isWarningEnabled = static_cast<bool>(std::get<int>(itr->second));
+                }
+            }
+        }
+    }
+
+    catch (const std::exception &exp)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Board B01 : error = " << exp.what();
+    }
+
+    return config;
+}
+
+void BoardB01::save (const BoardB01::Configuration &configuration) const noexcept
+{
+    try
+    {
+        const bool isDirectoryExist =   (std::filesystem::exists(this->config.configDirectory) == true) &&
+                                        (std::filesystem::is_directory(this->config.configDirectory) == true);
+
+        if (isDirectoryExist == true)
+        {
+            const std::filesystem::path file = this->config.configDirectory.string() + "/B01.ini";
+
+            Serializer::DataArray data;
+            data.emplace("WARNING_MODE", static_cast<int>(configuration.isWarningEnabled));
+
+            Serializer::Ini::save(data, file);
+        }
+    }
+
+    catch (const std::exception &exp)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Board B01 : error = " << exp.what();
     }
 
     return;

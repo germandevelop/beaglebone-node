@@ -6,7 +6,7 @@
 #ifndef BOARD_B01_H_
 #define BOARD_B01_H_
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 #include "Board.hpp"
 #include "RemoteControl.Type.hpp"
@@ -30,9 +30,9 @@ class BoardB01 : public Board
     public:
         struct Config
         {
-            boost::filesystem::path imageDirectory;
-            boost::filesystem::path soundDirectory;
-            boost::filesystem::path configFile;
+            std::filesystem::path imageDirectory;
+            std::filesystem::path soundDirectory;
+            std::filesystem::path configDirectory;
         };
 
     public:
@@ -66,20 +66,33 @@ class BoardB01 : public Board
         boost::asio::io_context &ioContext;
 
     private:
-        boost::movelib::unique_ptr<NodeB01> node;
+        std::unique_ptr<NodeB01> node;
 
     private:
-        boost::movelib::unique_ptr<PeriodicHumiditySensor> humiditySensor;
-        boost::movelib::unique_ptr<PeriodicSmokeSensor> smokeSensor;
-        boost::movelib::unique_ptr<PeriodicDustSensor> dustSensor;
+        std::unique_ptr<PeriodicHumiditySensor> humiditySensor;
+        std::unique_ptr<PeriodicSmokeSensor> smokeSensor;
+        std::unique_ptr<PeriodicDustSensor> dustSensor;
 
     private:
-        boost::movelib::unique_ptr<OneShotHdmiDisplayB01> hdmiDisplay;
-        boost::movelib::unique_ptr<OneShotLight> light;
+        std::unique_ptr<OneShotHdmiDisplayB01> hdmiDisplay;
+        std::unique_ptr<OneShotLight> light;
 
     private:
-        boost::movelib::unique_ptr<GpioInt> gpio;
+        std::unique_ptr<GpioInt> gpio;
         int64_t frontPirLastMS;
+
+    private:
+        struct Configuration
+        {
+            bool isWarningEnabled;
+        };
+
+    private:
+        Configuration configuration;
+
+    private:
+        Configuration load () const noexcept;
+        void save (const Configuration &configuration) const noexcept;
 };
 
 #endif // BOARD_B01_H_
