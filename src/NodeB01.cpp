@@ -227,8 +227,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
 
         NodeMsg outMsg;
         outMsg.header.source = NODE_B01;
-        outMsg.header.destArray.insert(NODE_T01);
-        outMsg.header.destArray.insert(NODE_B02);
+        outMsg.header.destArray.insert(NODE_BROADCAST);
 
         outMsg.cmdID = SET_MODE;
         outMsg.dataArray.emplace("value_id", static_cast<int>(SILENCE_MODE));
@@ -246,8 +245,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
 
         NodeMsg outMsg;
         outMsg.header.source = NODE_B01;
-        outMsg.header.destArray.insert(NODE_T01);
-        outMsg.header.destArray.insert(NODE_B02);
+        outMsg.header.destArray.insert(NODE_BROADCAST);
 
         outMsg.cmdID = SET_MODE;
         outMsg.dataArray.emplace("value_id", static_cast<int>(GUARD_MODE));
@@ -262,8 +260,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
 
         NodeMsg outMsg;
         outMsg.header.source = NODE_B01;
-        outMsg.header.destArray.insert(NODE_T01);
-        outMsg.header.destArray.insert(NODE_B02);
+        outMsg.header.destArray.insert(NODE_BROADCAST);
 
         outMsg.cmdID = SET_MODE;
         outMsg.dataArray.emplace("value_id", static_cast<int>(ALARM_MODE));
@@ -279,8 +276,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
 
         NodeMsg outMsg;
         outMsg.header.source = NODE_B01;
-        outMsg.header.destArray.insert(NODE_T01);
-        outMsg.header.destArray.insert(NODE_B02);
+        outMsg.header.destArray.insert(NODE_BROADCAST);
 
         outMsg.cmdID = SET_INTRUSION;
         outMsg.dataArray.emplace("value_id", static_cast<int>(INTRUSION_OFF));
@@ -295,8 +291,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
         {
             NodeMsg outMsg;
             outMsg.header.source = NODE_B01;
-            outMsg.header.destArray.insert(NODE_T01);
-            outMsg.header.destArray.insert(NODE_B02);
+            outMsg.header.destArray.insert(NODE_BROADCAST);
 
             outMsg.cmdID = SET_LIGHT;
             outMsg.dataArray.emplace("value_id", static_cast<int>(LIGHT_ON));
@@ -385,8 +380,7 @@ void NodeB01::processFrontMovement (int64_t timeMS)
         {
             NodeMsg outMsg;
             outMsg.header.source = NODE_B01;
-            outMsg.header.destArray.insert(NODE_T01);
-            outMsg.header.destArray.insert(NODE_B02);
+            outMsg.header.destArray.insert(NODE_BROADCAST);
 
             outMsg.cmdID = SET_LIGHT;
             outMsg.dataArray.emplace("value_id", static_cast<int>(LIGHT_ON));
@@ -426,8 +420,7 @@ void NodeB01::processSmoke (PeriodicSmokeSensorData data)
 
             NodeMsg outMsg;
             outMsg.header.source = NODE_B01;
-            outMsg.header.destArray.insert(NODE_T01);
-            outMsg.header.destArray.insert(NODE_B02);
+            outMsg.header.destArray.insert(NODE_BROADCAST);
 
             outMsg.cmdID = SET_MODE;
             outMsg.dataArray.emplace("value_id", static_cast<int>(ALARM_MODE));
@@ -447,8 +440,7 @@ void NodeB01::processSmoke (PeriodicSmokeSensorData data)
 
             NodeMsg outMsg;
             outMsg.header.source = NODE_B01;
-            outMsg.header.destArray.insert(NODE_T01);
-            outMsg.header.destArray.insert(NODE_B02);
+            outMsg.header.destArray.insert(NODE_BROADCAST);
 
             outMsg.cmdID = SET_MODE;
             outMsg.dataArray.emplace("value_id", static_cast<int>(SILENCE_MODE));
@@ -465,7 +457,7 @@ void NodeB01::processMessage (const NodeMsg &inMsg, int64_t timeMS)
     constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
     constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
 
-    if (inMsg.header.destArray.contains(this->id) != true)
+    if ((inMsg.header.destArray.contains(this->id) != true) && (inMsg.header.destArray.contains(NODE_BROADCAST) != true))
     {
         return;
     }
@@ -586,8 +578,7 @@ void NodeB01::addPeriodicMessages (int64_t timeMS)
         {
             NodeMsg outMsg;
             outMsg.header.source = NODE_B01;
-            outMsg.header.destArray.insert(NODE_T01);
-            outMsg.header.destArray.insert(NODE_B02);
+            outMsg.header.destArray.insert(NODE_BROADCAST);
 
             outMsg.cmdID = SET_MODE;
             outMsg.dataArray.emplace("value_id", static_cast<int>(this->mode));

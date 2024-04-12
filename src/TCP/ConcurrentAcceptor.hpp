@@ -26,6 +26,7 @@ namespace TCP
             virtual std::size_t startConnection (std::unique_ptr<Connection> connection) override final;
             virtual void stopConnections () override final;
             virtual void sendToAllConnections (std::string message) override final;
+            virtual void sendToAllConnectionsExceptOne (const boost::asio::ip::address &ip, std::string message) override final;
             virtual void sendToConnection (const boost::asio::ip::address &ip, std::string message) override final;
             virtual std::size_t clearStoppedConnections () override final;
             virtual void clearConnections () override final;

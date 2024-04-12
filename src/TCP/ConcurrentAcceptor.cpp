@@ -46,6 +46,15 @@ void ConcurrentAcceptor::sendToAllConnections (std::string message)
     return;
 }
 
+void ConcurrentAcceptor::sendToAllConnectionsExceptOne (const boost::asio::ip::address &ip, std::string message)
+{
+    std::shared_lock readLock { this->mutex };
+
+    this->Acceptor::sendToAllConnectionsExceptOne(ip, std::move(message));
+
+    return;
+}
+
 void ConcurrentAcceptor::sendToConnection (const boost::asio::ip::address &ip, std::string message)
 {
     std::shared_lock readLock { this->mutex };

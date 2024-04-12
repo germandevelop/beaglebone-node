@@ -8,6 +8,8 @@
 #include <cmath>
 
 #include <boost/asio/post.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/log/trivial.hpp>
 
 #include "NodeB01.hpp"
@@ -31,11 +33,14 @@
 BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
 :
     Board { context },
-    ioContext { context }
+    ioContext { context },
+    lightningBlockTimer { ioContext }
 {
     this->config = std::move(config);
 
     this->configuration = this->load();
+
+    this->isLightningBlocked = false;
 
     // Init B01 node
     {
@@ -134,9 +139,12 @@ void BoardB01::updateState ()
 
     this->updateStatusLed(state.statusLedColor);
 
-    if (state.isLightON == true)
+    if (this->isLightningBlocked == false)
     {
-        this->light->enableOneShotPower(NodeB01::LIGHT_DURATION_S);
+        if (state.isLightON == true)
+        {
+            this->light->enableOneShotPower(NodeB01::LIGHT_DURATION_S);
+        }
     }
 
     const bool isDisplayON = (state.isAlarmAudio == true) || (state.isIntrusionAudio == true) || (state.isDisplayON == true);
@@ -224,15 +232,26 @@ std::size_t BoardB01::processPhotoResistorData (Board::PhotoResistorData data)
     return NodeB01::LUMINOSITY_PERIOD_MIN;
 }
 
-bool BoardB01::isLightningON ()
+bool BoardB01::disableLightning (std::size_t periodMS)
 {
-    const auto timeMS = this->getCurrentTime();
+    auto asyncCallback = std::bind(&BoardB01::blockLightningAsync, this, periodMS);
+    boost::asio::co_spawn(this->ioContext, std::move(asyncCallback), boost::asio::detached);
 
-    const NodeB01::State state = this->node->getState(timeMS);
+    return true;
+}
 
-    const bool isLightON = (state.isLightON == true) || (state.isDisplayON == true);
+boost::asio::awaitable<void> BoardB01::blockLightningAsync (std::size_t blockPeriodMS)
+{
+    this->isLightningBlocked = true;
 
-    return isLightON;
+    this->light->disableOneShotPower();
+
+    this->lightningBlockTimer.expires_from_now(boost::posix_time::milliseconds(blockPeriodMS));
+    co_await this->lightningBlockTimer.async_wait(boost::asio::use_awaitable);
+
+    this->isLightningBlocked = false;
+
+    co_return;
 }
 
 void BoardB01::processRemoteButton (REMOTE_CONTROL_BUTTON button)

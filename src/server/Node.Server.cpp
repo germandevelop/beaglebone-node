@@ -77,17 +77,25 @@ void NodeServer::redirectMessage (std::string message)
         return;
     }
 
-    std::vector<boost::asio::ip::address> destArray;
-    destArray.reserve(header.destArray.size());
-
-    for (auto itr = std::cbegin(header.destArray); itr != std::cend(header.destArray); ++itr)
+    if (header.destArray.contains(NODE_BROADCAST) == true)
     {
-        auto ip = this->nodeTable[*itr];
+        auto ip = this->nodeTable[header.source];
 
-        destArray.push_back(boost::move(ip));
+        this->server->sendMessageToAllExceptOne(ip, std::move(message));
     }
+    else
+    {
+        std::vector<boost::asio::ip::address> destArray;
+        destArray.reserve(std::size(header.destArray));
 
-    this->server->sendMessage(std::move(destArray), std::move(message));
+        for (auto itr = std::cbegin(header.destArray); itr != std::cend(header.destArray); ++itr)
+        {
+            auto ip = this->nodeTable[*itr];
+            destArray.push_back(boost::move(ip));
+        }
+
+        this->server->sendMessage(std::move(destArray), std::move(message));
+    }
 
     return;
 }

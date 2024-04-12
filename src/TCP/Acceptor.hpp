@@ -36,12 +36,14 @@ namespace TCP
 
         public:
             void sendMessageToAll (std::string message);
+            void sendMessageToAllExceptOne (boost::asio::ip::address exceptOne, std::string message);
             void sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message);
 
         protected:
             virtual std::size_t startConnection (std::unique_ptr<Connection> connection);
             virtual void stopConnections ();
             virtual void sendToAllConnections (std::string message);
+            virtual void sendToAllConnectionsExceptOne (const boost::asio::ip::address &ip, std::string message);
             virtual void sendToConnection (const boost::asio::ip::address &ip, std::string message);
             virtual std::size_t clearStoppedConnections ();
             virtual void clearConnections ();

@@ -66,6 +66,13 @@ void Acceptor::sendMessageToAll (std::string message)
     return;
 }
 
+void Acceptor::sendMessageToAllExceptOne (boost::asio::ip::address exceptOne, std::string message)
+{
+    this->sendToAllConnectionsExceptOne(exceptOne, std::move(message));
+
+    return;
+}
+
 void Acceptor::sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message)
 {
     for (auto itr = std::cbegin(destArray); itr != std::cend(destArray); ++itr)
@@ -176,6 +183,19 @@ void Acceptor::sendToAllConnections (std::string message)
     for (auto itrConnection = std::begin(this->connectionArray); itrConnection != std::end(this->connectionArray); ++itrConnection)
     {
         itrConnection->second->sendMessage(message);
+    }
+
+    return;
+}
+
+void Acceptor::sendToAllConnectionsExceptOne (const boost::asio::ip::address &ip, std::string message)
+{
+    for (auto itrConnection = std::begin(this->connectionArray); itrConnection != std::end(this->connectionArray); ++itrConnection)
+    {
+        if (itrConnection->second->getIP() != ip)
+        {
+            itrConnection->second->sendMessage(message);
+        }
     }
 
     return;

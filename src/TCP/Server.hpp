@@ -37,6 +37,7 @@ namespace TCP
 
         public:
             void sendMessageToAll (std::string message);
+            void sendMessageToAllExceptOne (boost::asio::ip::address exceptOne, std::string message);
             void sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message);
 
         private:

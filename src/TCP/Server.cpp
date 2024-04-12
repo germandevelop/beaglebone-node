@@ -60,6 +60,15 @@ void Server::sendMessageToAll (std::string message)
     return;
 }
 
+void Server::sendMessageToAllExceptOne (boost::asio::ip::address exceptOne, std::string message)
+{
+    BOOST_LOG_TRIVIAL(info) << "TCP Server : send message = " << message;
+
+    this->acceptor->sendMessageToAllExceptOne(exceptOne, std::move(message));
+
+    return;
+}
+
 void Server::sendMessage (std::vector<boost::asio::ip::address> destArray, std::string message)
 {
     BOOST_LOG_TRIVIAL(info) << "TCP Server : send message = " << message;

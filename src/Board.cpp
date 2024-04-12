@@ -127,22 +127,30 @@ boost::asio::awaitable<void> Board::updatePhotoResistorDataAsync ()
     this->photoResistorTimer.expires_from_now(boost::posix_time::minutes(Board::DEFAULT_PHOTORESISTOR_PERIOD_MIN));
     co_await this->photoResistorTimer.async_wait(boost::asio::use_awaitable);
 
+    constexpr std::size_t initialPeriodMS   = 1U * 1000U;
+    constexpr std::size_t iterationPeriodMS = 100U;
+
+    constexpr std::size_t disablePeriodMS = initialPeriodMS + (iterationPeriodMS * (Board::PHOTORESISTOR_MEAUSEREMENT_COUNT + 1U));
+
     while (true)
     {
-        if (this->isLightningON() == false)
+        if (this->disableLightning(disablePeriodMS) == true)
         {
-            // Read adc data
             std::size_t dividerAdc_1;
 
+            // Read adc data
             {
                 this->isPhotoResistorReading = true;
                 this->statusLed->updateColor(STATUS_LED_COLOR::NO_COLOR);
+
+                this->photoResistorTimer.expires_from_now(boost::posix_time::milliseconds(initialPeriodMS));
+                co_await this->photoResistorTimer.async_wait(boost::asio::use_awaitable);
 
                 std::size_t adcBuffer = 0U;
 
                 for (std::size_t i = 0U; i < Board::PHOTORESISTOR_MEAUSEREMENT_COUNT; ++i)
                 {
-                    this->photoResistorTimer.expires_from_now(boost::posix_time::seconds(1));
+                    this->photoResistorTimer.expires_from_now(boost::posix_time::milliseconds(iterationPeriodMS));
                     co_await this->photoResistorTimer.async_wait(boost::asio::use_awaitable);
 
                     adcBuffer += this->photoResistor->readAdcValue();
@@ -154,28 +162,30 @@ boost::asio::awaitable<void> Board::updatePhotoResistorDataAsync ()
                 this->isPhotoResistorReading = false;
             }
 
-            // Calculate votage and resictance
-            const std::size_t adcMaxValue       = 4095U;
-            const float supplyVoltageV          = 1.8F;
-            const float dividerResistanceOhm    = 4700.0F;
+            // Calculate voltage and resistance
+            {
+                constexpr std::size_t adcMaxValue       = 4095U;
+                constexpr float supplyVoltageV          = 1.8F;
+                constexpr float dividerResistanceOhm    = 4700.0F;
 
-            const float dividerVoltageV_1 = supplyVoltageV * ((float)(dividerAdc_1) / (float)(adcMaxValue));
+                const float dividerVoltageV_1 = supplyVoltageV * ((float)(dividerAdc_1) / (float)(adcMaxValue));
 
-            const float currentA = dividerVoltageV_1 / dividerResistanceOhm;
+                const float currentA = dividerVoltageV_1 / dividerResistanceOhm;
 
-            const float dividerVoltageV_2 = currentA * dividerResistanceOhm;
+                const float dividerVoltageV_2 = currentA * dividerResistanceOhm;
 
-            Board::PhotoResistorData data;
-            data.voltageV       = supplyVoltageV - (dividerVoltageV_1 + dividerVoltageV_2);
-            data.resistanceOhm  = (std::size_t)(data.voltageV / currentA);
+                Board::PhotoResistorData data;
+                data.voltageV       = supplyVoltageV - (dividerVoltageV_1 + dividerVoltageV_2);
+                data.resistanceOhm  = (std::size_t)(data.voltageV / currentA);
 
-            BOOST_LOG_TRIVIAL(info) << "Board : photoresistor voltage = " << data.voltageV << " V";
-            BOOST_LOG_TRIVIAL(info) << "Board : photoresistor resistance = " << data.resistanceOhm << " Ohm";
+                BOOST_LOG_TRIVIAL(info) << "Board : photoresistor voltage = " << data.voltageV << " V";
+                BOOST_LOG_TRIVIAL(info) << "Board : photoresistor resistance = " << data.resistanceOhm << " Ohm";
 
-            const std::size_t periodMIN = this->processPhotoResistorData(data);
+                const std::size_t periodMIN = this->processPhotoResistorData(data);
 
-            this->photoResistorTimer.expires_from_now(boost::posix_time::minutes(periodMIN));
-            co_await this->photoResistorTimer.async_wait(boost::asio::use_awaitable);
+                this->photoResistorTimer.expires_from_now(boost::posix_time::minutes(periodMIN));
+                co_await this->photoResistorTimer.async_wait(boost::asio::use_awaitable);
+            }
         }
         else
         {

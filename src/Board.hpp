@@ -64,7 +64,7 @@ class Board
         virtual void processNodeMessage (NodeMsg message) = 0;
         virtual node_id_t getNodeId () const noexcept = 0;
         virtual std::size_t processPhotoResistorData (PhotoResistorData data) = 0;
-        virtual bool isLightningON () = 0;
+        virtual bool disableLightning (std::size_t periodMS) = 0;
         virtual void processRemoteButton (REMOTE_CONTROL_BUTTON button) = 0;
 
     private:

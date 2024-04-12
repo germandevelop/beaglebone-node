@@ -47,11 +47,14 @@ class BoardB01 : public Board
         virtual void processNodeMessage (NodeMsg message) override final;
         virtual node_id_t getNodeId () const noexcept override final;
         virtual std::size_t processPhotoResistorData (PhotoResistorData data) override final;
-        virtual bool isLightningON () override final;
+        virtual bool disableLightning (std::size_t periodMS) override final;
         virtual void processRemoteButton (REMOTE_CONTROL_BUTTON button) override final;
 
     private:
         void updateState ();
+
+    private:
+        boost::asio::awaitable<void> blockLightningAsync (std::size_t blockPeriodMS);
 
     private:
         void processHumiditySensor (PeriodicHumiditySensorData data);
@@ -76,6 +79,10 @@ class BoardB01 : public Board
     private:
         std::unique_ptr<OneShotHdmiDisplayB01> hdmiDisplay;
         std::unique_ptr<OneShotLight> light;
+
+    private:
+        boost::asio::deadline_timer lightningBlockTimer;
+        bool isLightningBlocked;
 
     private:
         std::unique_ptr<GpioInt> gpio;
