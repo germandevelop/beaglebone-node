@@ -46,7 +46,7 @@ NodeServer::~NodeServer () = default;
 void NodeServer::start ()
 {
     TCP::Server::Config config;
-    config.port                     = static_cast<decltype(config.port)>(host_port);
+    config.port                     = static_cast<decltype(config.port)>(server_port);
     config.processMessageCallback   = std::bind(&NodeServer::receiveMessage, this, std::placeholders::_1);
 
     this->server->start(config);
@@ -79,9 +79,15 @@ void NodeServer::redirectMessage (std::string message)
 
     if (header.destArray.contains(NODE_BROADCAST) == true)
     {
-        auto ip = this->nodeTable[header.source];
-
-        this->server->sendMessageToAllExceptOne(ip, std::move(message));
+		if (header.source != NODE_BROADCAST)
+		{
+			auto ip = this->nodeTable[header.source];
+        	this->server->sendMessageToAllExceptOne(ip, std::move(message));
+		}
+		else
+		{
+			this->server->sendMessageToAll(std::move(message));
+		}
     }
     else
     {
