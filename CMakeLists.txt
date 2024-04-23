@@ -9,9 +9,9 @@ cmake_minimum_required(VERSION 3.22)
 
 option(BUILD_TESTS "Enable tests building." OFF)
 if(BUILD_TESTS)
-    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/amd64.cmake")
+    set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/amd64.cmake)
 else()
-    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/armhf.cmake")
+    set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/armhf.cmake)
 endif()
 
 project(beaglebone_node)
@@ -46,7 +46,7 @@ if(NOT common_code_POPULATED)
     FetchContent_Populate(common_code)
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -114,11 +114,11 @@ target_link_libraries(bb_testing INTERFACE node)
 add_library(bb_common INTERFACE)
 target_include_directories(bb_testing
     INTERFACE
-        "${CMAKE_CURRENT_BINARY_DIR}"
+        ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_sources(bb_common
     INTERFACE
-        "${CMAKE_CURRENT_BINARY_DIR}/Version.hpp"
+        ${CMAKE_CURRENT_BINARY_DIR}/Version.hpp
         src/Node.Type.hpp
         src/Node.Mapper.hpp
         src/Node.Mapper.cpp

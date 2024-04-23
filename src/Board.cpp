@@ -55,20 +55,6 @@ Board::Board (boost::asio::io_context &context)
         this->remoteControl = std::make_unique<RemoteControl>(config, this->ioContext);
     }
 
-    // Init TCP Client
-    {
-        this->client = std::make_unique<TCP::Client>(this->ioContext);
-    }
-
-    // Init node
-    {
-        Node::Config config;
-        config.processRawMessageCallback    = std::bind(&TCP::Client::sendMessage, this->client.get(), std::placeholders::_1);
-        config.processMessageCallback       = std::bind(&Board::receiveNodeMessage, this, std::placeholders::_1);
-
-        this->node = std::make_unique<Node>(config, this->ioContext);
-    }
-
     return;
 }
 
@@ -79,13 +65,27 @@ void Board::start ()
 {
     const auto nodeId = this->getNodeId();
 
-    TCP::Client::Config config;
-    config.ip   = std::to_string(node_ip_address[nodeId][0]) + "." + std::to_string(node_ip_address[nodeId][1]) + "."
-                + std::to_string(node_ip_address[nodeId][2]) + "." + std::to_string(node_ip_address[nodeId][3]);
-    config.port = static_cast<decltype(config.port)>(host_port);
-    config.processMessageCallback = std::bind(&Node::addRawMessage, this->node.get(), std::placeholders::_1);
+    // Init node
+    {
+        Node::Config config;
+        config.id                           = nodeId;
+        config.processRawMessageCallback    = std::bind(&TCP::Client::sendMessage, this->client.get(), std::placeholders::_1);
+        config.processMessageCallback       = std::bind(&Board::receiveNodeMessage, this, std::placeholders::_1);
 
-    this->client->start(config);
+        this->node = std::make_unique<Node>(config, this->ioContext);
+    }
+
+    // Init TCP Client
+    {
+        TCP::Client::Config config;
+        config.ip   = std::to_string(node_ip_address[nodeId][0]) + "." + std::to_string(node_ip_address[nodeId][1]) + "."
+                    + std::to_string(node_ip_address[nodeId][2]) + "." + std::to_string(node_ip_address[nodeId][3]);
+        config.port = static_cast<decltype(config.port)>(server_port);
+        config.processMessageCallback = std::bind(&Node::addRawMessage, this->node.get(), std::placeholders::_1);
+
+        this->client = std::make_unique<TCP::Client>(this->ioContext);
+        this->client->start(config);
+    }
 
     return;
 }

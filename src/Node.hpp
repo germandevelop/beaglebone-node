@@ -15,6 +15,8 @@ class Node
     public:
         struct Config
         {
+            node_id_t id;
+            
             std::function<void(std::string)> processRawMessageCallback;
             std::function<void(NodeMsg)> processMessageCallback;
         };

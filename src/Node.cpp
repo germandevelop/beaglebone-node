@@ -9,6 +9,8 @@
 #include <boost/asio/post.hpp>
 #include <boost/log/trivial.hpp>
 
+#include "Version.hpp"
+
 
 Node::Node (Node::Config config, boost::asio::io_context &context)
 :
@@ -53,9 +55,25 @@ void Node::processRawMessage (std::string message)
         return;
     }
 
-    if (this->config.processMessageCallback != nullptr)
+    if (nodeMsg.cmdID == REQUEST_VERSION)
     {
-        this->config.processMessageCallback(std::move(nodeMsg));
+        NodeMsg outMsg;
+        outMsg.header.source = this->config.id;
+        outMsg.header.destArray.insert(nodeMsg.header.source);
+
+        outMsg.cmdID = RESPONSE_VERSION;
+        outMsg.dataArray.emplace("major", VERSION_MAJOR);
+        outMsg.dataArray.emplace("minor", VERSION_MINOR);
+        outMsg.dataArray.emplace("patch", VERSION_PATCH);
+
+        this->addMessage(std::move(outMsg));
+    }
+    else
+    {
+        if (this->config.processMessageCallback != nullptr)
+        {
+            this->config.processMessageCallback(std::move(nodeMsg));
+        }
     }
 
     return;
