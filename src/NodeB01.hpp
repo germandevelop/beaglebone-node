@@ -20,18 +20,18 @@
 class NodeB01
 {
     public:
-        static constexpr float DARKNESS_LEVEL_LUX           = 5.5F;
+        static constexpr float DARKNESS_LEVEL_LUX           = 10.5F;
         static constexpr std::size_t SMOKE_THRESHOLD_ADC    = 200U;
         static constexpr float T01_HIGH_TEMPERATURE_C       = 25.0F;
-        static constexpr float T01_LOW_TEMPERATURE_C        = 15.0F;
+        static constexpr float T01_LOW_TEMPERATURE_C        = 16.0F;
 
         static constexpr std::size_t LIGHT_DURATION_S       = 30U;
         static constexpr std::size_t DISPLAY_DURATION_S     = 60U;
 
-        static constexpr std::size_t LUMINOSITY_PERIOD_MIN  = 2U;
-        static constexpr std::size_t HUMIDITY_PERIOD_MIN    = 2U;
-        static constexpr std::size_t DUST_PERIOD_MIN        = 4U;
-        static constexpr std::size_t SMOKE_PERIOD_MIN       = 2U;
+        static constexpr std::size_t LUMINOSITY_PERIOD_MIN  = 15U;
+        static constexpr std::size_t HUMIDITY_PERIOD_MIN    = 6U;
+        static constexpr std::size_t DUST_PERIOD_MIN        = 15U;
+        static constexpr std::size_t SMOKE_PERIOD_MIN       = 8U;
         static constexpr std::size_t MESSAGE_PERIOD_MIN     = 20U;
 
     public:
@@ -73,7 +73,8 @@ class NodeB01
     public:
         void processLuminosity (Luminosity data);
         void processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS);
-        void processFrontMovement (int64_t timeMS);
+        void processDoorMovement (int64_t timeMS);
+        void processRoomMovement (int64_t timeMS);
         void processHumidity (PeriodicHumiditySensorData data);
         void processDust (PeriodicDustSensorData data);
         void processSmoke (PeriodicSmokeSensorData data);

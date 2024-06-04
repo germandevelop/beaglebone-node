@@ -339,7 +339,7 @@ TEST_F(NodeB01TestFixture, ProcessRemoteButtonWarningOn)
 }
 
 
-class NodeB01ParamFrontPir : public NodeB01TestFixture, public testing::WithParamInterface
+class NodeB01ParamDoorPir : public NodeB01TestFixture, public testing::WithParamInterface
     <std::tuple<
         NodeB01::Luminosity,
         REMOTE_CONTROL_BUTTON,
@@ -347,7 +347,7 @@ class NodeB01ParamFrontPir : public NodeB01TestFixture, public testing::WithPara
     >>
 {};
 
-TEST_P(NodeB01ParamFrontPir, ProcessFrontPir)
+TEST_P(NodeB01ParamDoorPir, ProcessDoorPir)
 {
     // Arrange: create and set up a system under test
     NodeB01::Luminosity luminosity = std::get<0>(GetParam());
@@ -360,7 +360,7 @@ TEST_P(NodeB01ParamFrontPir, ProcessFrontPir)
     NodeB01::State expectedState = std::get<2>(GetParam());
 
     // Act: poke the system under test
-    node.processFrontMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
+    node.processDoorMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
     NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
 
     // Assert: make unit test pass or fail
@@ -373,10 +373,10 @@ TEST_P(NodeB01ParamFrontPir, ProcessFrontPir)
     EXPECT_EQ(resultState.isAlarmAudio,     expectedState.isAlarmAudio);
 }
 
-INSTANTIATE_TEST_SUITE_P(NodeB01TestFixture, NodeB01ParamFrontPir,
+INSTANTIATE_TEST_SUITE_P(NodeB01TestFixture, NodeB01ParamDoorPir,
     testing::Values
     (
-        // SILENCE mode + front pir
+        // SILENCE mode + door pir
         std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX), .isValid = true },
                         REMOTE_CONTROL_BUTTON::ONE,
                         NodeB01::State { .statusLedColor = STATUS_LED_COLOR::GREEN, .isLightON = false,
@@ -387,7 +387,7 @@ INSTANTIATE_TEST_SUITE_P(NodeB01TestFixture, NodeB01ParamFrontPir,
                         NodeB01::State { .statusLedColor = STATUS_LED_COLOR::GREEN, .isLightON = true,
                                         .isDisplayON = true, .isWarningAudio = false, .isIntrusionAudio = false,
                                         .isAlarmAudio = false, .isMessageToSend = true }),
-        // GUARD mode + front pir
+        // GUARD mode + door pir
         std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX), .isValid = true },
                         REMOTE_CONTROL_BUTTON::TWO,
                         NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = false,
@@ -398,7 +398,81 @@ INSTANTIATE_TEST_SUITE_P(NodeB01TestFixture, NodeB01ParamFrontPir,
                         NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = false,
                                         .isDisplayON = false, .isWarningAudio = false, .isIntrusionAudio = false,
                                         .isAlarmAudio = false, .isMessageToSend = false }),
-        // ALARM mode + front pir
+        // ALARM mode + door pir
+        std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX), .isValid = true },
+                        REMOTE_CONTROL_BUTTON::GRID,
+                        NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = false,
+                                        .isDisplayON = false, .isWarningAudio = false, .isIntrusionAudio = false,
+                                        .isAlarmAudio = true, .isMessageToSend = false }),
+        std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX - 1.0F), .isValid = true },
+                        REMOTE_CONTROL_BUTTON::GRID,
+                        NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = true,
+                                        .isDisplayON = false, .isWarningAudio = false, .isIntrusionAudio = false,
+                                        .isAlarmAudio = true, .isMessageToSend = false })
+    )
+);
+
+
+class NodeB01ParamRoomPir : public NodeB01TestFixture, public testing::WithParamInterface
+    <std::tuple<
+        NodeB01::Luminosity,
+        REMOTE_CONTROL_BUTTON,
+        NodeB01::State
+    >>
+{};
+
+TEST_P(NodeB01ParamRoomPir, ProcessRoomPir)
+{
+    // Arrange: create and set up a system under test
+    NodeB01::Luminosity luminosity = std::get<0>(GetParam());
+    node.processLuminosity(luminosity);
+
+    REMOTE_CONTROL_BUTTON modeButton = std::get<1>(GetParam());
+    node.processRemoteButton(modeButton, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
+    node.extractMessages();
+
+    NodeB01::State expectedState = std::get<2>(GetParam());
+
+    // Act: poke the system under test
+    node.processRoomMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
+    NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
+
+    // Assert: make unit test pass or fail
+    EXPECT_EQ(resultState.isMessageToSend,  expectedState.isMessageToSend);
+    EXPECT_EQ(resultState.statusLedColor,   expectedState.statusLedColor);
+    EXPECT_EQ(resultState.isLightON,        expectedState.isLightON);
+    EXPECT_EQ(resultState.isDisplayON,      expectedState.isDisplayON);
+    EXPECT_EQ(resultState.isWarningAudio,   expectedState.isWarningAudio);
+    EXPECT_EQ(resultState.isIntrusionAudio, expectedState.isIntrusionAudio);
+    EXPECT_EQ(resultState.isAlarmAudio,     expectedState.isAlarmAudio);
+}
+
+INSTANTIATE_TEST_SUITE_P(NodeB01TestFixture, NodeB01ParamRoomPir,
+    testing::Values
+    (
+        // SILENCE mode + room pir
+        std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX), .isValid = true },
+                        REMOTE_CONTROL_BUTTON::ONE,
+                        NodeB01::State { .statusLedColor = STATUS_LED_COLOR::GREEN, .isLightON = false,
+                                        .isDisplayON = true, .isWarningAudio = false, .isIntrusionAudio = false,
+                                        .isAlarmAudio = false, .isMessageToSend = false }),
+        std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX - 1.0F), .isValid = true },
+                        REMOTE_CONTROL_BUTTON::ONE,
+                        NodeB01::State { .statusLedColor = STATUS_LED_COLOR::GREEN, .isLightON = false,
+                                        .isDisplayON = true, .isWarningAudio = false, .isIntrusionAudio = false,
+                                        .isAlarmAudio = false, .isMessageToSend = false }),
+        // GUARD mode + room pir
+        std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX), .isValid = true },
+                        REMOTE_CONTROL_BUTTON::TWO,
+                        NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = false,
+                                        .isDisplayON = false, .isWarningAudio = false, .isIntrusionAudio = false,
+                                        .isAlarmAudio = false, .isMessageToSend = false }),
+        std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX - 1.0F), .isValid = true },
+                        REMOTE_CONTROL_BUTTON::TWO,
+                        NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = false,
+                                        .isDisplayON = false, .isWarningAudio = false, .isIntrusionAudio = false,
+                                        .isAlarmAudio = false, .isMessageToSend = false }),
+        // ALARM mode + room pir
         std::make_tuple(NodeB01::Luminosity { .lux = (NodeB01::DARKNESS_LEVEL_LUX), .isValid = true },
                         REMOTE_CONTROL_BUTTON::GRID,
                         NodeB01::State { .statusLedColor = STATUS_LED_COLOR::RED, .isLightON = false,
@@ -690,7 +764,7 @@ TEST_P(NodeB01ParamMsgT01, ProcessMsgT01)
     // Act: poke the system under test
     node.processMessage(humidityMsg, (NodeB01::DISPLAY_DURATION_S * 2U * 1000U));
     node.processMessage(doorMsg, ((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 1U));
-    node.processFrontMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
+    node.processDoorMovement(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 2U));
     NodeB01::State resultState = node.getState(((NodeB01::DISPLAY_DURATION_S * 2U * 1000U) + 3U));
 
     // Assert: make unit test pass or fail

@@ -36,7 +36,7 @@ RemoteControl::RemoteControl (RemoteControl::Config config, boost::asio::io_cont
         config.start_bit    = 13520U;
         config.one_bit      = 2140U;
         config.zero_bit     = 1060U;
-        config.threshold    = 300U;
+        config.threshold    = 800U;
 
         this->vs1838_control = std::make_unique<vs1838_control_t>();
         vs1838_control_init(this->vs1838_control.get(), &config);

@@ -17,8 +17,6 @@
 #include "PhotoResistor.hpp"
 #include "RemoteControl.hpp"
 
-#define REMOTE_CONTROL_INT_GPIO 22U
-
 
 Board::Board (boost::asio::io_context &context)
 :
@@ -49,7 +47,7 @@ Board::Board (boost::asio::io_context &context)
         this->remoteControlLastMS = 0;
 
         RemoteControl::Config config;
-        config.gpio             = REMOTE_CONTROL_INT_GPIO;
+        config.gpio             = Board::REMOTE_CONTROL_INT_GPIO;
         config.processCallback  = std::bind(&Board::processRemoteControl, this, std::placeholders::_1);
 
         this->remoteControl = std::make_unique<RemoteControl>(config, this->ioContext);
@@ -64,6 +62,11 @@ Board::~Board () = default;
 void Board::start ()
 {
     const auto nodeId = this->getNodeId();
+
+    // Alloc TCP Client
+    {
+        this->client = std::make_unique<TCP::Client>(this->ioContext);
+    }
 
     // Init node
     {
@@ -83,7 +86,6 @@ void Board::start ()
         config.port = static_cast<decltype(config.port)>(server_port);
         config.processMessageCallback = std::bind(&Node::addRawMessage, this->node.get(), std::placeholders::_1);
 
-        this->client = std::make_unique<TCP::Client>(this->ioContext);
         this->client->start(config);
     }
 
@@ -165,17 +167,16 @@ boost::asio::awaitable<void> Board::updatePhotoResistorDataAsync ()
             // Calculate voltage and resistance
             {
                 constexpr std::size_t adcMaxValue       = 4095U;
-                constexpr float supplyVoltageV          = 1.8F;
+                constexpr float adcMaxVoltageV          = 1.8F;
+                constexpr float supplyVoltageV          = 3.3F;
                 constexpr float dividerResistanceOhm    = 4700.0F;
 
-                const float dividerVoltageV_1 = supplyVoltageV * ((float)(dividerAdc_1) / (float)(adcMaxValue));
+                const float dividerVoltageV_1 = adcMaxVoltageV * ((float)(dividerAdc_1) / (float)(adcMaxValue));
 
                 const float currentA = dividerVoltageV_1 / dividerResistanceOhm;
 
-                const float dividerVoltageV_2 = currentA * dividerResistanceOhm;
-
                 Board::PhotoResistorData data;
-                data.voltageV       = supplyVoltageV - (dividerVoltageV_1 + dividerVoltageV_2);
+                data.voltageV       = supplyVoltageV - (dividerVoltageV_1 * 2.0F);
                 data.resistanceOhm  = (std::size_t)(data.voltageV / currentA);
 
                 BOOST_LOG_TRIVIAL(info) << "Board : photoresistor voltage = " << data.voltageV << " V";

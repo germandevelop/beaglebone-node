@@ -26,9 +26,13 @@ namespace TCP
 class Board
 {
     private:
-        static constexpr std::size_t DEFAULT_PHOTORESISTOR_PERIOD_MIN   = 5U;
+        static constexpr std::size_t DEFAULT_PHOTORESISTOR_PERIOD_MIN   = 1U;
         static constexpr std::size_t PHOTORESISTOR_MEAUSEREMENT_COUNT   = 5U;
-        static constexpr int64_t REMOTE_CONTROL_HYSTERESIS_MS           = (1U * 1000U);
+
+        static constexpr int64_t REMOTE_CONTROL_HYSTERESIS_MS = (1U * 1000U);
+
+    private:
+        static constexpr std::size_t REMOTE_CONTROL_INT_GPIO = 22U;
 
     public:
         explicit Board (boost::asio::io_context &context);

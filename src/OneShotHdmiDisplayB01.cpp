@@ -32,6 +32,8 @@ OneShotHdmiDisplayB01::OneShotHdmiDisplayB01 (OneShotHdmiDisplayB01::Config conf
 
     this->display = std::make_unique<HdmiDisplay>();
 
+    this->shiftX = 0.0;
+
     GpioOut::Config gpioOutConfig;
     gpioOutConfig.gpio = this->config.powerGpio;
 
@@ -87,28 +89,32 @@ boost::asio::awaitable<void> OneShotHdmiDisplayB01::showAsync (OneShotHdmiDispla
         {
             BOOST_LOG_TRIVIAL(info) << "HDMI display : play alarm";
 
-            while (true)
+            this->cleanDisplay();
+
+            for (std::size_t i = 0U; i < 5U; ++i)
             {
+                this->timer.expires_from_now(boost::posix_time::seconds(3));
+                co_await this->timer.async_wait(boost::asio::use_awaitable);
+
                 std::filesystem::path file = this->config.soundDirectory.string() + "/alarm.wav";
 
                 this->playAudio(std::move(file));
-
-                this->timer.expires_from_now(boost::posix_time::seconds(3));
-                co_await this->timer.async_wait(boost::asio::use_awaitable);
             }
         }
         else if (data.isIntrusionAudio == true)
         {
             BOOST_LOG_TRIVIAL(info) << "HDMI display : play intrusion";
 
-            while (true)
+            this->cleanDisplay();
+
+            for (std::size_t i = 0U; i < 2U; ++i)
             {
+                this->timer.expires_from_now(boost::posix_time::seconds(3));
+                co_await this->timer.async_wait(boost::asio::use_awaitable);
+
                 std::filesystem::path file = this->config.soundDirectory.string() + "/intrusion.wav";
 
                 this->playAudio(std::move(file));
-
-                this->timer.expires_from_now(boost::posix_time::seconds(3));
-                co_await this->timer.async_wait(boost::asio::use_awaitable);
             }
         }
         else
@@ -119,9 +125,15 @@ boost::asio::awaitable<void> OneShotHdmiDisplayB01::showAsync (OneShotHdmiDispla
 
             if (data.isWarningAudio == true)
             {
-                std::filesystem::path file = this->config.soundDirectory.string() + "/warning.wav";
+                for (std::size_t i = 0U; i < 2U; ++i)
+                {
+                    this->timer.expires_from_now(boost::posix_time::seconds(3));
+                    co_await this->timer.async_wait(boost::asio::use_awaitable);
+                    
+                    std::filesystem::path file = this->config.soundDirectory.string() + "/warning.wav";
 
-                this->playAudio(std::move(file));
+                    this->playAudio(std::move(file));
+                }
             }
 
             this->timer.expires_from_now(boost::posix_time::seconds(showTimeS));
@@ -158,7 +170,7 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         text.text   = "Баня";
         text.font   = "Sans Bold 50";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 50.0;
+        text.x      = this->shiftX + 50.0;
         text.y      = 10.0;
         this->display->drawText(std::move(text));
     }
@@ -171,7 +183,7 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         text.text   = dataStream.str();
         text.font   = "Sans Bold 25";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 10.0;
+        text.x      = this->shiftX + 10.0;
         text.y      = 95.0;
         this->display->drawText(std::move(text));
             
@@ -221,15 +233,17 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         dataStream << "Давление:  ";
         if (data.humidityData.isValid == true)
         {
-            dataStream << std::setw(6) << data.humidityData.pressureHPa;
+            const float pressureMM = data.humidityData.pressureHPa * 0.7506F;
+
+            dataStream << std::setw(6) << pressureMM;
         }
-        dataStream << " гПа";
+        dataStream << " мм.рт.ст";
 
         HdmiDisplay::Text text;
         text.text   = dataStream.str();
         text.font   = "Sans Bold 25";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 10.0;
+        text.x      = this->shiftX + 10.0;
         text.y      = 150.0;
         this->display->drawText(std::move(text));
     }
@@ -262,7 +276,7 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         text.text   = dataStream.str();
         text.font   = "Sans Bold 25";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 10.0;
+        text.x      = this->shiftX + 10.0;
         text.y      = 275.0;
         this->display->drawText(std::move(text));
     }
@@ -272,7 +286,7 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         text.text   = "Улица";
         text.font   = "Sans Bold 50";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 45.0;
+        text.x      = this->shiftX + 45.0;
         text.y      = 430.0;
         this->display->drawText(std::move(text));
     }
@@ -291,15 +305,17 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         dataStream << "Давление:  ";
         if (data.humidityDataB02.isValid == true)
         {
-            dataStream << std::setw(6) << data.humidityDataB02.pressureHPa;
+            const float pressureMM = data.humidityDataB02.pressureHPa * 0.7506F;
+
+            dataStream << std::setw(6) << pressureMM;
         }
-        dataStream << " гПа";
+        dataStream << " мм.рт.ст";
 
         HdmiDisplay::Text text;
         text.text   = dataStream.str();
         text.font   = "Sans Bold 25";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 10.0;
+        text.x      = this->shiftX + 10.0;
         text.y      = 510.0;
         this->display->drawText(std::move(text));
     }
@@ -309,7 +325,7 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         text.text   = "Теплица";
         text.font   = "Sans Bold 50";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 570.0;
+        text.x      = this->shiftX + 530.0;
         text.y      = 10.0;
         this->display->drawText(std::move(text));
     }
@@ -335,15 +351,17 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         dataStream << "Давление:  ";
         if (data.humidityDataT01.isValid == true)
         {
-            dataStream << std::setw(6) << data.humidityDataT01.pressureHPa;
+            const float pressureMM = data.humidityDataT01.pressureHPa * 0.7506F;
+
+            dataStream << std::setw(6) << pressureMM;
         }
-        dataStream << " гПа";
+        dataStream << " мм.рт.ст";
 
         HdmiDisplay::Text text;
         text.text   = dataStream.str();
         text.font   = "Sans Bold 25";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 540.0;
+        text.x      = this->shiftX + 500.0;
         text.y      = 95.0;
         this->display->drawText(std::move(text));
     }
@@ -351,21 +369,21 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
     {
         std::stringstream dataStream;
         dataStream << std::fixed << std::setprecision(1);
-        dataStream << "Дверь(" << std::setw(4) << data.T01_LOW_TEMPERATURE_C << "/" << std::setw(4) << data.T01_HIGH_TEMPERATURE_C << "C): ";
+        dataStream << "Дверь: ";
 
         HdmiDisplay::Text text;
         text.text   = dataStream.str();
         text.font   = "Sans Bold 25";
         text.color  = HdmiDisplay::COLOR::WHITE;
-        text.x      = 540.0;
+        text.x      = this->shiftX + 500.0;
         text.y      = 220.0;
         this->display->drawText(std::move(text));
-            
+
         if (data.doorDataT01.isValid == true)
         {
             dataStream.str("");
             dataStream.clear();
-            dataStream << "                         ";
+            dataStream << "              ";
 
             if (data.doorDataT01.isOpen == true)
             {
@@ -431,9 +449,9 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         HdmiDisplay::Line line;
         line.color = HdmiDisplay::COLOR::GRAY;
         line.width = 4.0;
-        line.x_0 = 0.0;
+        line.x_0 = this->shiftX;
         line.y_0 = 400.0;
-        line.x_1 = 520.0;
+        line.x_1 = this->shiftX + 480.0;
         line.y_1 = 400.0;
 
         this->display->drawLine(line);
@@ -443,9 +461,9 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         HdmiDisplay::Line line;
         line.color = HdmiDisplay::COLOR::GRAY;
         line.width = 4.0;
-        line.x_0 = 520.0;
+        line.x_0 = this->shiftX + 480.0;
         line.y_0 = 300.0;
-        line.x_1 = 1024.0;
+        line.x_1 = this->shiftX + 900.0;
         line.y_1 = 300.0;
 
         this->display->drawLine(line);
@@ -455,9 +473,9 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         HdmiDisplay::Line line;
         line.color = HdmiDisplay::COLOR::GRAY;
         line.width = 4.0;
-        line.x_0 = 520.0;
+        line.x_0 = this->shiftX + 480.0;
         line.y_0 = 0.0;
-        line.x_1 = 520.0;
+        line.x_1 = this->shiftX + 480.0;
         line.y_1 = 600.0;
 
         this->display->drawLine(line);
@@ -479,7 +497,7 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
         if (std::filesystem::exists(file) == true)
         {
             HdmiDisplay::Image image;
-            image.x = 700.0;
+            image.x = this->shiftX + 580.0;
             image.y = 350.0;
             image.file = file.string();
 
@@ -488,6 +506,15 @@ void OneShotHdmiDisplayB01::drawData (OneShotHdmiDisplayDataB01 data)
     }
 
     this->display->disableFrameBuffer();
+
+    if (this->shiftX > 119.0)
+    {
+        this->shiftX = 0.0;
+    }
+    else
+    {
+        this->shiftX += 10.0;
+    }
 
     return;
 }
@@ -528,16 +555,27 @@ void OneShotHdmiDisplayB01::playAudio (std::filesystem::path file) const
     return;
 }
 
+void OneShotHdmiDisplayB01::cleanDisplay ()
+{
+    this->display->enableFrameBuffer();
+
+    this->display->fillBackground(HdmiDisplay::COLOR::BLACK);
+
+    this->display->disableFrameBuffer();
+
+    return;
+}
+
 void OneShotHdmiDisplayB01::enablePower ()
 {
-    this->powerGpio->setLow();
+    this->powerGpio->setHigh();
 
     return;
 }
 
 void OneShotHdmiDisplayB01::disablePower ()
 {
-    this->powerGpio->setHigh();
+    this->powerGpio->setLow();
 
     return;
 }

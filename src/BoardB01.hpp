@@ -25,7 +25,31 @@ class GpioInt;
 class BoardB01 : public Board
 {
     private:
-        static constexpr int64_t FRONT_PIR_HYSTERESIS_MS = (1U * 1000U);
+        static constexpr std::size_t HUMIDITY_INIT_WARM_TIME_S  = 30U;
+        static constexpr std::size_t HUMIDITY_WARM_TIME_S       = 8U;
+        static constexpr std::size_t HUMIDITY_MODULE_TIME_S     = 5U;
+
+        static constexpr std::size_t DUST_INIT_WARM_TIME_S  = (3U * 60U);
+        static constexpr std::size_t DUST_WARM_TIME_S       = 30U;
+        static constexpr std::size_t DUST_MODULE_TIME_S     = 45U;
+
+        static constexpr std::size_t SMOKE_INIT_WARM_TIME_S = (2U * 60U);
+        static constexpr std::size_t SMOKE_WARM_TIME_S      = 30U;
+        static constexpr std::size_t SMOKE_SAMPLE_COUNT     = 32U;
+        static constexpr std::size_t SMOKE_SAMPLE_TIME_S    = 1U;
+
+        static constexpr std::size_t HDMI_DISPLAY_WARM_TIME_S = 4U;
+
+        static constexpr int64_t PIR_HYSTERESIS_MS = (1U * 1000U);
+
+    private:
+        static constexpr std::size_t HDMI_DISPLAY_POWER_GPIO    = 45U;
+        static constexpr std::size_t HUMIDITY_SENSOR_POWER_GPIO = 65U;
+        static constexpr std::size_t SMOKE_SENSOR_POWER_GPIO    = 46U;
+        static constexpr std::size_t DUST_SENSOR_POWER_GPIO     = 61U;
+        static constexpr std::size_t LIGHT_POWER_GPIO           = 7U;
+        static constexpr std::size_t DOOR_PIR_INT_GPIO          = 27U;
+        static constexpr std::size_t ROOM_PIR_INT_GPIO          = 47U;
 
     public:
         struct Config
@@ -60,7 +84,8 @@ class BoardB01 : public Board
         void processHumiditySensor (PeriodicHumiditySensorData data);
         void processDustSensor (PeriodicDustSensorData data);
         void processSmokeSensor (PeriodicSmokeSensorData data);
-        void processFrontPir ();
+        void processDoorPir ();
+        void processRoomPir ();
 
     private:
         Config config;
@@ -85,8 +110,11 @@ class BoardB01 : public Board
         bool isLightningBlocked;
 
     private:
-        std::unique_ptr<GpioInt> gpio;
-        int64_t frontPirLastMS;
+        bool arePirsInitialized;
+        std::unique_ptr<GpioInt> doorPir;
+        int64_t doorPirLastMS;
+        std::unique_ptr<GpioInt> roomPir;
+        int64_t roomPirLastMS;
 
     private:
         struct Configuration

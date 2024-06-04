@@ -22,14 +22,6 @@
 #include "Serializer.hpp"
 
 
-#define HDMI_DISPLAY_POWER_GPIO     0U
-#define HUMIDITY_SENSOR_POWER_GPIO  61U
-#define SMOKE_SENSOR_POWER_GPIO     46U
-#define DUST_SENSOR_POWER_GPIO      65U
-#define LIGHT_POWER_GPIO            0U
-#define FRONT_PIR_INT_GPIO          0U
-
-
 BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
 :
     Board { context },
@@ -42,6 +34,8 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
 
     this->isLightningBlocked = false;
 
+    this->arePirsInitialized = false;
+
     // Init B01 node
     {
         NodeB01::Config config;
@@ -53,11 +47,11 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
     // Init humidity sensor
     {
         PeriodicHumiditySensor::Config config;
-        config.initWarmTimeS    = 30U;
-        config.warmTimeS        = 8U;
-        config.moduleTimeS      = 5U;
+        config.initWarmTimeS    = BoardB01::HUMIDITY_INIT_WARM_TIME_S;
+        config.warmTimeS        = BoardB01::HUMIDITY_WARM_TIME_S;
+        config.moduleTimeS      = BoardB01::HUMIDITY_MODULE_TIME_S;
         config.sleepTimeMin     = NodeB01::HUMIDITY_PERIOD_MIN;
-        config.powerGpio        = HUMIDITY_SENSOR_POWER_GPIO;
+        config.powerGpio        = BoardB01::HUMIDITY_SENSOR_POWER_GPIO;
         config.processCallback  = std::bind(&BoardB01::processHumiditySensor, this, std::placeholders::_1);
 
         this->humiditySensor = std::make_unique<PeriodicHumiditySensor>(config, this->ioContext);
@@ -67,11 +61,11 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
     // Init dust sensor
     {
         PeriodicDustSensor::Config config;
-        config.initWarmTimeS    = 60U * 3U;
-        config.warmTimeS        = 30U;
-        config.moduleTimeS      = 45U;
+        config.initWarmTimeS    = BoardB01::DUST_INIT_WARM_TIME_S;
+        config.warmTimeS        = BoardB01::DUST_WARM_TIME_S;
+        config.moduleTimeS      = BoardB01::DUST_MODULE_TIME_S;
         config.sleepTimeMin     = NodeB01::DUST_PERIOD_MIN;
-        config.powerGpio        = DUST_SENSOR_POWER_GPIO;
+        config.powerGpio        = BoardB01::DUST_SENSOR_POWER_GPIO;
         config.processCallback  = std::bind(&BoardB01::processDustSensor, this, std::placeholders::_1);
 
         this->dustSensor = std::make_unique<PeriodicDustSensor>(config, this->ioContext);
@@ -81,12 +75,12 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
     // Init smoke sensor
     {
         PeriodicSmokeSensor::Config config;
-        config.initWarmTimeS    = 60U * 2U;
-        config.warmTimeS        = 30U;
-        config.sampleCount      = 16U;
-        config.sampleTimeS      = 2U;
+        config.initWarmTimeS    = BoardB01::SMOKE_INIT_WARM_TIME_S;
+        config.warmTimeS        = BoardB01::SMOKE_WARM_TIME_S;
+        config.sampleCount      = BoardB01::SMOKE_SAMPLE_COUNT;
+        config.sampleTimeS      = BoardB01::SMOKE_SAMPLE_TIME_S;
         config.sleepTimeMin     = NodeB01::SMOKE_PERIOD_MIN;
-        config.powerGpio        = SMOKE_SENSOR_POWER_GPIO;
+        config.powerGpio        = BoardB01::SMOKE_SENSOR_POWER_GPIO;
         config.processCallback  = std::bind(&BoardB01::processSmokeSensor, this, std::placeholders::_1);
 
         this->smokeSensor = std::make_unique<PeriodicSmokeSensor>(config, this->ioContext);
@@ -96,8 +90,8 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
     // Init HDMI display
     {
         OneShotHdmiDisplayB01::Config config;
-        config.warmTimeS        = 8U;
-        config.powerGpio        = HDMI_DISPLAY_POWER_GPIO;
+        config.warmTimeS        = BoardB01::HDMI_DISPLAY_WARM_TIME_S;
+        config.powerGpio        = BoardB01::HDMI_DISPLAY_POWER_GPIO;
         config.imageDirectory   = this->config.imageDirectory;
         config.soundDirectory   = this->config.soundDirectory;
 
@@ -107,21 +101,9 @@ BoardB01::BoardB01 (BoardB01::Config config, boost::asio::io_context &context)
     // Init light
     {
         OneShotLight::Config config;
-        config.powerGpio = LIGHT_POWER_GPIO;
+        config.powerGpio = BoardB01::LIGHT_POWER_GPIO;
 
         this->light = std::make_unique<OneShotLight>(config, this->ioContext);
-    }
-
-    // Init front pir
-    {
-        this->frontPirLastMS = 0;
-
-        GpioInt::Config config;
-        config.gpio                 = FRONT_PIR_INT_GPIO;
-        config.edge                 = GpioInt::EDGE::RISING;
-        config.interruptCallback    = std::bind(&BoardB01::processFrontPir, this);
-
-        this->gpio = std::make_unique<GpioInt>(config, context);
     }
 
     return;
@@ -176,9 +158,9 @@ void BoardB01::updateState ()
 
     if (state.isMessageToSend == true)
     {
-        auto messages = this->node->extractMessages();
+        const auto messages = this->node->extractMessages();
 
-        for (auto itr = std::begin(messages); itr != std::end(messages); ++itr)
+        for (auto itr = std::cbegin(messages); itr != std::cend(messages); ++itr)
         {
             this->sendNodeMessage(std::move(*itr));
         }
@@ -213,10 +195,10 @@ node_id_t BoardB01::getNodeId () const noexcept
 
 std::size_t BoardB01::processPhotoResistorData (Board::PhotoResistorData data)
 {
-    constexpr float gamma               = 0.60F;        // Probably it does not work
-    constexpr float oneLuxResistanceOhm = 200000.0F;    // Probably it does not work
+    constexpr float gamma               = 0.70F;
+    constexpr float oneLuxResistanceOhm = 200000.0F;
 
-    const float lux = std::pow(10.0F, (std::log10(oneLuxResistanceOhm / (float)(data.resistanceOhm)) / gamma));  // Probably it does not work
+    const float lux = std::pow(10.0F, (std::log10(oneLuxResistanceOhm / (float)(data.resistanceOhm)) / gamma));
 
     BOOST_LOG_TRIVIAL(info) << "Board B01 : photoresistor luminosity = " << lux << " lux";
 
@@ -228,6 +210,35 @@ std::size_t BoardB01::processPhotoResistorData (Board::PhotoResistorData data)
 
     auto asyncCallback = std::bind(&BoardB01::updateState, this);
     boost::asio::post(this->ioContext, asyncCallback);
+
+    if (this->arePirsInitialized == false)
+    {
+        this->arePirsInitialized = true;
+
+        // Init door pir
+        {
+            this->doorPirLastMS = 0;
+
+            GpioInt::Config config;
+            config.gpio                 = BoardB01::DOOR_PIR_INT_GPIO;
+            config.edge                 = GpioInt::EDGE::RISING;
+            config.interruptCallback    = std::bind(&BoardB01::processDoorPir, this);
+
+            this->doorPir = std::make_unique<GpioInt>(config, this->ioContext);
+        }
+
+        // Init room pir
+        {
+            this->roomPirLastMS = 0;
+
+            GpioInt::Config config;
+            config.gpio                 = BoardB01::ROOM_PIR_INT_GPIO;
+            config.edge                 = GpioInt::EDGE::RISING;
+            config.interruptCallback    = std::bind(&BoardB01::processRoomPir, this);
+
+            this->roomPir = std::make_unique<GpioInt>(config, this->ioContext);
+        }
+    }
 
     return NodeB01::LUMINOSITY_PERIOD_MIN;
 }
@@ -296,17 +307,36 @@ void BoardB01::processSmokeSensor (PeriodicSmokeSensorData data)
     return;
 }
 
-void BoardB01::processFrontPir ()
+void BoardB01::processDoorPir ()
 {
     const auto timeMS = this->getCurrentTime();
 
-    if ((timeMS - this->frontPirLastMS) > BoardB01::FRONT_PIR_HYSTERESIS_MS)
+    if ((timeMS - this->doorPirLastMS) > BoardB01::PIR_HYSTERESIS_MS)
     {
-        BOOST_LOG_TRIVIAL(info) << "Board B01 : front pir event";
+        BOOST_LOG_TRIVIAL(info) << "Board B01 : door pir event";
 
-        this->frontPirLastMS = timeMS;
+        this->doorPirLastMS = timeMS;
 
-        this->node->processFrontMovement(timeMS);
+        this->node->processDoorMovement(timeMS);
+
+        auto asyncCallback = std::bind(&BoardB01::updateState, this);
+        boost::asio::post(this->ioContext, asyncCallback);
+    }
+
+    return;
+}
+
+void BoardB01::processRoomPir ()
+{
+    const auto timeMS = this->getCurrentTime();
+
+    if ((timeMS - this->roomPirLastMS) > BoardB01::PIR_HYSTERESIS_MS)
+    {
+        BOOST_LOG_TRIVIAL(info) << "Board B01 : room pir event";
+
+        this->roomPirLastMS = timeMS;
+
+        this->node->processRoomMovement(timeMS);
 
         auto asyncCallback = std::bind(&BoardB01::updateState, this);
         boost::asio::post(this->ioContext, asyncCallback);

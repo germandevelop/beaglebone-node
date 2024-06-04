@@ -47,6 +47,7 @@ class OneShotHdmiDisplayB01
 
     private:
         void playAudio (std::filesystem::path file) const;
+        void cleanDisplay ();
 
     private:
         void enablePower ();
@@ -58,6 +59,7 @@ class OneShotHdmiDisplayB01
     private:
         boost::asio::deadline_timer timer;
         std::unique_ptr<HdmiDisplay> display;
+        double shiftX;
         std::unique_ptr<GpioOut> powerGpio;
         bool isPowerEnabled;
 };

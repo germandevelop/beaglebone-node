@@ -28,6 +28,8 @@ PeriodicSmokeSensor::PeriodicSmokeSensor (PeriodicSmokeSensor::Config config, bo
     gpioOutConfig.gpio = this->config.powerGpio;
 
     this->powerGpio = std::make_unique<GpioOut>(gpioOutConfig);
+    
+    this->disablePower();
 
     return;
 }
@@ -100,15 +102,15 @@ boost::asio::awaitable<void> PeriodicSmokeSensor::readAsync ()
             co_await this->timer.async_wait(boost::asio::use_awaitable);
         }
 
-        catch(const std::exception &exp)
+        catch (const std::exception &exp)
         {
             BOOST_LOG_TRIVIAL(error) << "Smoke sensor : error = " << exp.what();
+
+            this->disablePower();
+
+            this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
+            co_await this->timer.async_wait(boost::asio::use_awaitable);
         }
-
-        this->disablePower();
-
-        this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
-        co_await this->timer.async_wait(boost::asio::use_awaitable);
     }
 
     co_return;

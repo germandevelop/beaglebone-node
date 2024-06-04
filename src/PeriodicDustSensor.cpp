@@ -26,6 +26,8 @@ PeriodicDustSensor::PeriodicDustSensor (PeriodicDustSensor::Config config, boost
 
     this->powerGpio = std::make_unique<GpioOut>(gpioOutConfig);
 
+    this->disablePower();
+
     return;
 }
 
@@ -98,13 +100,13 @@ boost::asio::awaitable<void> PeriodicDustSensor::readAsync ()
         catch(const std::exception &exp)
         {
             BOOST_LOG_TRIVIAL(error) << "Dust sensor : error = " << exp.what();
+
+            this->disableModule();
+            this->disablePower();
+
+            this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
+            co_await this->timer.async_wait(boost::asio::use_awaitable);
         }
-
-        this->disableModule();
-        this->disablePower();
-
-        this->timer.expires_from_now(boost::posix_time::minutes(this->config.sleepTimeMin));
-        co_await this->timer.async_wait(boost::asio::use_awaitable);
     }
 
     co_return;

@@ -353,7 +353,7 @@ void NodeB01::processRemoteButton (REMOTE_CONTROL_BUTTON button, int64_t timeMS)
     return;
 }
 
-void NodeB01::processFrontMovement (int64_t timeMS)
+void NodeB01::processDoorMovement (int64_t timeMS)
 {
     constexpr int64_t LIGHT_DURATION_MS     = NodeB01::LIGHT_DURATION_S     * 1000U;
     constexpr int64_t DISPLAY_DURATION_MS   = NodeB01::DISPLAY_DURATION_S   * 1000U;
@@ -386,6 +386,24 @@ void NodeB01::processFrontMovement (int64_t timeMS)
             outMsg.dataArray.emplace("value_id", static_cast<int>(LIGHT_ON));
 
             this->outMsgArray.push_back(std::move(outMsg));
+        }
+    }
+    return;
+}
+
+void NodeB01::processRoomMovement (int64_t timeMS)
+{
+    constexpr int64_t DISPLAY_DURATION_MS = NodeB01::DISPLAY_DURATION_S * 1000U;
+
+    this->updateTime(timeMS);
+
+    if (this->mode == SILENCE_MODE)
+    {
+        const int64_t displayDurationMS = timeMS - this->displayStartTimeMS;
+
+        if (displayDurationMS > DISPLAY_DURATION_MS)
+        {
+            this->displayStartTimeMS = timeMS;
         }
     }
     return;
@@ -535,10 +553,9 @@ void NodeB01::processMessage (const NodeMsg &inMsg, int64_t timeMS)
 
 NodeB01::MessageContainer NodeB01::extractMessages ()
 {
-    auto msgArray = std::move(this->outMsgArray);
+    auto msgArray = this->outMsgArray;
 
     this->outMsgArray.clear();
-    this->outMsgArray.reserve(2U);
 
     return msgArray;
 }

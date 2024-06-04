@@ -16,8 +16,8 @@ endif()
 
 project(beaglebone_node)
 
-set(VERSION_MAJOR 1)
-set(VERSION_MINOR 0)
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_PATCH 0)
 configure_file(src/Version.hpp.in Version.hpp @ONLY)
 
